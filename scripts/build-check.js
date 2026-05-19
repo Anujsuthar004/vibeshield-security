@@ -37,6 +37,16 @@ for (const token of ["VibeShield Security", "og:title", "site.webmanifest", "sec
   }
 }
 
+for (const file of ["index.html", "security.html", "privacy.html", "robots.txt", "sitemap.xml", "README.md", "SECURITY.md"]) {
+  const contents = fs.readFileSync(path.join(root, file), "utf8");
+  for (const placeholder of ["vibeshield.dev", "hello@vibeshield.dev"]) {
+    if (contents.includes(placeholder)) {
+      console.error(`${file} still contains placeholder: ${placeholder}`);
+      failed = true;
+    }
+  }
+}
+
 if (failed) {
   process.exit(1);
 }

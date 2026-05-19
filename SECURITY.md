@@ -13,4 +13,4 @@ VibeShield is a public prototype of a security scanning product. Do not submit r
 
 ## Reporting vulnerabilities
 
-Email security reports to hello@vibeshield.dev with a short description, affected route or file, and reproduction steps.
+For now, use GitHub private vulnerability reporting once enabled for the repository. If unavailable, open a minimal GitHub issue that does not include exploit details or secrets, and coordinate disclosure privately before posting technical reproduction steps.

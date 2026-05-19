@@ -19,7 +19,13 @@ No package install is required. The app is static HTML, CSS, and JavaScript.
 
 ## Publish
 
-This project can be deployed as a static site on GitHub Pages, Vercel, Netlify, Cloudflare Pages, or any static host.
+This project is deployed on Vercel at:
+
+```text
+https://vibeshield-security.vercel.app
+```
+
+It can also be deployed as a static site on GitHub Pages, Netlify, Cloudflare Pages, or any static host.
 
 Build check:
 

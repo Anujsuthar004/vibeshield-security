@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://vibeshield.dev/sitemap.xml
+Sitemap: https://vibeshield-security.vercel.app/sitemap.xml
