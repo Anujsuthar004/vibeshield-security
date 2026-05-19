@@ -4,8 +4,8 @@
   "private": true,
   "description": "Security check platform for vibe-coded SaaS and AI-built apps.",
   "scripts": {
-    "start": "python3 -m http.server 4173",
-    "dev": "python3 -m http.server 4173",
+    "start": "node scripts/local-server.js",
+    "dev": "node scripts/local-server.js",
     "build": "node scripts/build-check.js"
   },
   "keywords": [
@@ -21,6 +21,6 @@
   "license": "MIT",
   "devDependencies": {},
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   }
 }

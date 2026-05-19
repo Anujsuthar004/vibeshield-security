@@ -99,7 +99,7 @@
         <div class="section-heading">
           <p class="eyebrow">Secure intake</p>
           <h2>Scan a repo without handing over your whole kingdom.</h2>
-          <p>Connect a repository, upload a zip, or paste a risky route. VibeShield runs read-only checks in an isolated worker and returns evidence with fix steps.</p>
+          <p>Connect a repository, upload a source file, or paste a risky route. VibeShield runs read-only checks in an isolated worker and returns redacted evidence with fix steps.</p>
         </div>
 
         <div class="scanner-layout">
@@ -112,12 +112,12 @@
 
             <label class="field github-field">
               <span>Repository URL</span>
-              <input id="repoUrl" type="url" placeholder="https://github.com/acme/vibe-app" value="https://github.com/acme/vibe-commerce" />
+              <input id="repoUrl" type="url" placeholder="https://github.com/acme/vibe-app" value="https://github.com/Anujsuthar004/vibeshield-security" />
             </label>
 
             <label class="field hidden upload-field">
-              <span>Project archive</span>
-              <input type="file" id="archiveInput" accept=".zip,.tar,.gz" />
+              <span>Single source file</span>
+              <input type="file" id="archiveInput" accept=".js,.jsx,.ts,.tsx,.py,.rb,.php,.go,.java,.sql,.prisma,.json,.env,.yml,.yaml,.html,.md,.txt" />
             </label>
 
             <label class="field hidden paste-field">
@@ -133,7 +133,7 @@
             </div>
 
             <button class="button primary full" type="submit">Run security scan</button>
-            <p class="fine-print">Public demo build: scan simulation runs in your browser. Production connectors should use isolated workers and read-only repository access.</p>
+            <p class="fine-print" id="scanNote">Backend scanner is active. GitHub scans use public repo access unless GitHub App environment variables are configured for private repos.</p>
           </form>
 
           <aside class="run-panel" aria-live="polite">
@@ -194,8 +194,8 @@
             <p>Keys are detected, masked, and excluded from model prompts. Findings store fingerprints, not raw secret values.</p>
           </article>
           <article>
-            <h3>Audit trail</h3>
-            <p>Every repository connection, scan, result export, and patch action is recorded for customer review.</p>
+            <h3>Audit-ready metadata</h3>
+            <p>Each scan returns a traceable scan ID, target, file count, retention window, and control flags without storing raw source code.</p>
           </article>
         </div>
       </section>

@@ -18,13 +18,13 @@
       <section class="section-heading">
         <p class="eyebrow">Privacy</p>
         <h1>Privacy posture for a code security platform.</h1>
-        <p>This static site does not collect form submissions. Production repository scanning should collect only what is necessary to run scans and produce reports.</p>
+        <p>The scanner processes repository source or pasted code only to produce security findings. Raw source files are not retained after scan execution.</p>
       </section>
       <section class="legal-grid">
-        <article><h3>Data minimization</h3><p>Keep repository metadata, scan findings, and billing records separate. Avoid storing full source unless retention is explicitly enabled.</p></article>
-        <article><h3>Retention</h3><p>Default source retention should be short, visible, and configurable. Customers should be able to delete scan artifacts.</p></article>
-        <article><h3>Subprocessors</h3><p>Any external model, hosting, logging, or payment vendor should be listed with the data categories they process.</p></article>
-        <article><h3>Exports</h3><p>Reports should omit raw secrets and sensitive snippets unless the customer explicitly chooses an evidence-rich export.</p></article>
+        <article><h3>Data minimization</h3><p>The current scanner stores result metadata and redacted findings. It does not store raw repository files after the worker finishes.</p></article>
+        <article><h3>Retention</h3><p>Scan results expire automatically within the configured retention window, capped at 24 hours in this implementation.</p></article>
+        <article><h3>Subprocessors</h3><p>Public deployment uses Vercel hosting and GitHub APIs for repository access. No external model provider is used by the deterministic scanner.</p></article>
+        <article><h3>Exports</h3><p>Findings redact secret-looking values before returning evidence to the browser.</p></article>
       </section>
     </main>
   </body>

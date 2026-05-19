@@ -29,6 +29,18 @@ for (const file of required) {
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 new Function(app);
 
+for (const modulePath of [
+  "api/_lib/http.js",
+  "api/_lib/github-app.js",
+  "api/_lib/storage.js",
+  "api/_lib/scanner.js",
+  "api/health.js",
+  "api/scans.js",
+  "api/scans/[id].js"
+]) {
+  require(path.join(root, modulePath));
+}
+
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 for (const token of ["VibeShield Security", "og:title", "site.webmanifest", "security.html", "privacy.html"]) {
   if (!html.includes(token)) {

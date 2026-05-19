@@ -18,13 +18,13 @@
       <section class="section-heading">
         <p class="eyebrow">Security</p>
         <h1>How VibeShield should handle customer source code.</h1>
-        <p>This public build is a static product site and local demo. A production implementation should use these controls before accepting real repositories.</p>
+        <p>This public build includes a deterministic backend scanner. Private repository scanning requires the GitHub App environment variables described in the setup guide.</p>
       </section>
       <section class="legal-grid">
         <article><h3>Repository access</h3><p>Use a GitHub App with read-only repository permissions by default. Write permissions should be requested only for explicit patch workflows.</p></article>
-        <article><h3>Isolation</h3><p>Run every scan in an ephemeral worker with no shared filesystem between tenants. Remove source after the retention window or on customer request.</p></article>
-        <article><h3>Secrets</h3><p>Detect and redact credentials before evidence storage or model analysis. Store fingerprints and locations, never raw secret values.</p></article>
-        <article><h3>Auditability</h3><p>Log repository connections, scan starts, exports, patch creation, and user access changes in a customer-visible audit trail.</p></article>
+        <article><h3>Isolation</h3><p>Each scan uses a dedicated temporary worker directory that is removed after scan completion. Scan results expire after the configured retention window.</p></article>
+        <article><h3>Secrets</h3><p>Secret-looking values are redacted in returned evidence. The scanner stores findings, metadata, and fingerprints rather than raw source files.</p></article>
+        <article><h3>Deletion</h3><p>Scan results can be deleted through the scan result API before the retention window expires.</p></article>
       </section>
     </main>
   </body>

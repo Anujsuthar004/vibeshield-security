@@ -1,4 +1,4 @@
-const findings = [
+const sampleFindings = [
   {
     severity: "critical",
     title: "Broken ownership check on user data route",
@@ -65,6 +65,8 @@ const findings = [
   }
 ];
 
+let findings = [...sampleFindings];
+
 const controls = {
   "Auth & Access": [
     "Route-level authentication middleware coverage",
@@ -128,8 +130,19 @@ const steps = [...document.querySelectorAll("#scanSteps li")];
 const controlList = document.querySelector("#controlList");
 const themeToggle = document.querySelector("#themeToggle");
 const scoreValue = document.querySelector("#scoreValue");
+const scanNote = document.querySelector("#scanNote");
+const archiveInput = document.querySelector("#archiveInput");
 
 let activeFilter = "all";
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 function renderFindings() {
   const query = search.value.trim().toLowerCase();
@@ -139,18 +152,31 @@ function renderFindings() {
     return matchesSeverity && haystack.includes(query);
   });
 
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <article class="finding-card">
+        <div>
+          <p class="eyebrow">No matches</p>
+          <h3>No findings match this view</h3>
+        </div>
+        <p>Try another severity filter or search term.</p>
+      </article>
+    `;
+    return;
+  }
+
   grid.innerHTML = filtered.map((finding) => `
     <article class="finding-card">
       <div class="finding-top">
-        <span class="severity ${finding.severity}">${finding.severity}</span>
-        <span class="confidence">${finding.confidence}</span>
+        <span class="severity ${escapeHtml(finding.severity)}">${escapeHtml(finding.severity)}</span>
+        <span class="confidence">${escapeHtml(finding.confidence)}</span>
       </div>
       <div>
-        <p class="eyebrow">${finding.category}</p>
-        <h3>${finding.title}</h3>
+        <p class="eyebrow">${escapeHtml(finding.category)}</p>
+        <h3>${escapeHtml(finding.title)}</h3>
       </div>
-      <div class="evidence">${finding.evidence}</div>
-      <p>${finding.fix}</p>
+      <div class="evidence">${escapeHtml(finding.evidence)}</div>
+      <p>${escapeHtml(finding.fix)}</p>
     </article>
   `).join("");
 }
@@ -184,33 +210,101 @@ segments.forEach((segment) => {
 
 search.addEventListener("input", renderFindings);
 
-form.addEventListener("submit", (event) => {
+async function readUpload() {
+  const file = archiveInput.files?.[0];
+  if (!file) {
+    throw new Error("Choose a source file to scan.");
+  }
+  if (file.size > 120 * 1024) {
+    throw new Error("Upload a text source file under 120 KB for this scanner version.");
+  }
+  return {
+    filename: file.name,
+    code: await file.text()
+  };
+}
+
+function setScanStep(index) {
+  steps.forEach((item, itemIndex) => {
+    item.className = itemIndex < index ? "done" : itemIndex === index ? "active" : "pending";
+  });
+  progressBar.style.width = `${Math.min(100, index * 20)}%`;
+}
+
+async function startBackendScan(mode) {
+  const repoValue = document.querySelector("#repoUrl").value.trim();
+  const pasteValue = document.querySelector("#codePaste").value.trim();
+  if (mode === "github") {
+    return {
+      sourceType: "github",
+      repoUrl: repoValue
+    };
+  }
+  if (mode === "upload") {
+    return {
+      sourceType: "paste",
+      ...(await readUpload())
+    };
+  }
+  return {
+    sourceType: "paste",
+    filename: "pasted-snippet.js",
+    code: pasteValue || "app.get('/api/users/:id', (req, res) => db.query('SELECT * FROM users WHERE id = ' + req.params.id))"
+  };
+}
+
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const repoValue = document.querySelector("#repoUrl").value || "local upload";
+  const mode = document.querySelector(".segment.active").dataset.mode;
+  const repoValue = mode === "github" ? document.querySelector("#repoUrl").value : mode;
   const target = repoValue.split("/").filter(Boolean).pop() || "pasted code";
   scanTarget.textContent = target;
   scanStatus.textContent = "Scanning";
+  scanNote.textContent = "Running backend scan in an isolated worker. Secret-looking values are redacted before evidence is returned.";
   progressBar.style.width = "0%";
   steps.forEach((step) => {
     step.className = "pending";
   });
 
-  steps.forEach((step, index) => {
-    setTimeout(() => {
-      steps.forEach((item, itemIndex) => {
-        item.className = itemIndex < index ? "done" : itemIndex === index ? "active" : "pending";
-      });
-      progressBar.style.width = `${(index + 1) * 20}%`;
-      scoreValue.textContent = String(Math.max(54, 76 - index));
-      if (index === steps.length - 1) {
-        setTimeout(() => {
-          steps.forEach((item) => item.className = "done");
-          scanStatus.textContent = "Complete";
-          scoreValue.textContent = "68";
-        }, 450);
-      }
-    }, 520 * (index + 1));
-  });
+  try {
+    setScanStep(1);
+    const payload = await startBackendScan(mode);
+    setScanStep(2);
+    const response = await fetch("/api/scans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    setScanStep(3);
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || "Scan failed.");
+    }
+    setScanStep(5);
+    steps.forEach((item) => item.className = "done");
+    scanStatus.textContent = "Complete";
+    scanTarget.textContent = result.target || target;
+    scoreValue.textContent = String(result.score);
+    findings = result.findings.length ? result.findings : [];
+    activeFilter = "all";
+    tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.filter === "all"));
+    renderFindings();
+    scanNote.textContent = `Scan ${result.id} reviewed ${result.filesScanned} file(s), found ${result.findings.length} issue(s), and expires in ${result.retentionHours} hour(s).`;
+    document.querySelector("#findings").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    scanStatus.textContent = "Failed";
+    progressBar.style.width = "100%";
+    findings = [{
+      severity: "high",
+      title: "Scanner could not complete",
+      category: "Scanner",
+      confidence: "100%",
+      evidence: error.message,
+      fix: "Check the repository URL, GitHub App configuration, or pasted input and try again."
+    }];
+    renderFindings();
+    scanNote.textContent = error.message;
+  }
 });
 
 themeToggle.addEventListener("click", () => {
