@@ -1,0 +1,16 @@
+{
+  "name": "VibeShield Security",
+  "short_name": "VibeShield",
+  "description": "Security scanning for vibe-coded SaaS and AI-built apps.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f7f4",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
