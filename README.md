@@ -2,6 +2,8 @@
 
 Static security scanner for vibe-coded SaaS and AI-built applications. AST-based JS/TS analysis, language-specific rule sets for Python/Ruby/Go/PHP/SQL, dependency CVE matching via OSV, GitHub App integration with PR comments and patch branches, PDF/email reports, and a multi-tenant dashboard.
 
+**VibeShield is free to use.** No paid tiers, no checkout, no upsell — every feature is available to every workspace.
+
 ## Quick start (local)
 
 ```bash

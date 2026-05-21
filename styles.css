@@ -276,9 +276,26 @@ canvas {
 .workspace,
 .findings-section,
 .trust,
-.pricing,
+.cta-band,
 .controls {
   padding: 56px clamp(18px, 4vw, 56px);
+}
+
+.cta-band {
+  text-align: center;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 8%, transparent), transparent);
+}
+
+.cta-band .section-heading {
+  max-width: 720px;
+  margin: 0 auto 24px;
+}
+
+.cta-band-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .metrics {
@@ -558,64 +575,15 @@ canvas {
 }
 
 .trust-grid,
-.pricing-grid,
 .control-list {
   display: grid;
   gap: 18px;
-}
-
-.trust-grid,
-.control-list {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.pricing-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .trust-grid article,
-.plan,
 .control-category {
   padding: 20px;
-}
-
-.plan {
-  display: grid;
-  gap: 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.plan.featured {
-  border-color: color-mix(in srgb, var(--primary) 55%, var(--line));
-  box-shadow: var(--shadow);
-}
-
-.price {
-  margin: 0;
-  font-size: clamp(34px, 5vw, 52px);
-  font-weight: 900;
-}
-
-.price span {
-  color: var(--muted);
-  font-size: 18px;
-}
-
-.plan p:not(.price) {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.plan ul {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding-left: 18px;
-  color: var(--muted);
-  line-height: 1.45;
 }
 
 .control-category ul {
@@ -970,7 +938,6 @@ canvas {
   .metrics,
   .findings-grid,
   .trust-grid,
-  .pricing-grid,
   .control-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -992,7 +959,6 @@ canvas {
   .metrics,
   .findings-grid,
   .trust-grid,
-  .pricing-grid,
   .control-list,
   .scan-options {
     grid-template-columns: 1fr;

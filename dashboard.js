@@ -96,7 +96,6 @@
     $("#workspace-meta").textContent = `Signed in as ${state.user.email}`;
     $("#account-email").textContent = state.user.email;
     $("#account-org").textContent = `${state.org.name} (${state.org.id})`;
-    $("#account-plan").textContent = state.org.plan;
   }
 
   async function loadHealth() {
