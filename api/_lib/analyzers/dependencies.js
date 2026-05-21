@@ -1,6 +1,8 @@
 const { buildFinding } = require("../findings");
+const db = require("../db");
 
 const OSV_ENDPOINT = "https://api.osv.dev/v1/query";
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const ECOSYSTEMS = {
   npm: { manifests: ["package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"], ecosystem: "npm" },
   pypi: { manifests: ["requirements.txt", "Pipfile.lock", "poetry.lock"], ecosystem: "PyPI" },
@@ -126,7 +128,46 @@ function parseEntries(file) {
   return [];
 }
 
+async function readCache(cacheKey) {
+  if (!db.usingPg()) return null;
+  try {
+    const row = await db.findOne("osv_cache", { cache_key: cacheKey });
+    if (!row) return null;
+    if (Date.parse(row.expires_at) <= Date.now()) {
+      return null;
+    }
+    return typeof row.vulns === "string" ? JSON.parse(row.vulns) : row.vulns;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(cacheKey, ecosystem, name, version, vulns) {
+  if (!db.usingPg()) return;
+  try {
+    const expiresAt = new Date(Date.now() + CACHE_TTL_MS).toISOString();
+    const existing = await db.findOne("osv_cache", { cache_key: cacheKey });
+    if (existing) {
+      await db.update("osv_cache", { cache_key: cacheKey }, { vulns, expires_at: expiresAt });
+    } else {
+      await db.insert("osv_cache", {
+        cache_key: cacheKey,
+        ecosystem,
+        package_name: name,
+        version,
+        vulns,
+        expires_at: expiresAt
+      });
+    }
+  } catch {
+    // best effort
+  }
+}
+
 async function osvQuery(name, version, ecosystem) {
+  const cacheKey = `${ecosystem}:${name}:${version}`;
+  const cached = await readCache(cacheKey);
+  if (cached) return cached;
   try {
     const response = await fetch(OSV_ENDPOINT, {
       method: "POST",
@@ -135,7 +176,9 @@ async function osvQuery(name, version, ecosystem) {
     });
     if (!response.ok) return [];
     const body = await response.json();
-    return Array.isArray(body.vulns) ? body.vulns : [];
+    const vulns = Array.isArray(body.vulns) ? body.vulns : [];
+    await writeCache(cacheKey, ecosystem, name, version, vulns);
+    return vulns;
   } catch {
     return [];
   }

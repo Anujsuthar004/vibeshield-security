@@ -73,7 +73,7 @@ module.exports = async function handler(req, res) {
     if (req.method === "DELETE") return await deleteKey(principal, req, res);
     return methodNotAllowed(res, ["GET", "POST", "DELETE"]);
   } catch (error) {
-    const normalized = normalizeError(error);
+    const normalized = normalizeError(error, { route: "keys", method: req.method });
     return sendJson(res, normalized.status, normalized.body);
   }
 };

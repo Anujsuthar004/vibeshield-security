@@ -49,7 +49,7 @@ const apiModules = [
   "api/_lib/ignore.js",
   "api/_lib/patcher.js",
   "api/_lib/report.js",
-  "api/_lib/email.js",
+  "api/_lib/ratelimit.js",
   "api/_lib/storage.js",
   "api/_lib/scanner.js",
   "api/_lib/analyzers/index.js",
@@ -70,7 +70,8 @@ const apiModules = [
   "api/repositories.js",
   "api/suppressions.js",
   "api/webhooks.js",
-  "api/pr.js"
+  "api/pr.js",
+  "api/cron.js"
 ];
 
 for (const modulePath of apiModules) {

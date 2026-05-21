@@ -101,10 +101,10 @@
   async function loadHealth() {
     try {
       const health = await api("/api/health");
-      $("#github-pill").textContent = `GitHub App: ${health.githubAppConfigured ? "configured" : "not configured"}`;
+      $("#github-pill").textContent = `GitHub App: ${health.githubAppConfigured ? "configured" : "public repos only"}`;
       $("#github-pill").classList.toggle("ok", health.githubAppConfigured);
-      $("#email-pill").textContent = `Email: ${health.emailConfigured ? "ready" : "not configured"}`;
-      $("#email-pill").classList.toggle("ok", health.emailConfigured);
+      $("#db-pill").textContent = `Storage: ${health.databaseConfigured ? "Postgres" : "in-memory"}`;
+      $("#db-pill").classList.toggle("ok", health.databaseConfigured);
     } catch (error) {
       console.warn("health failed", error);
     }
@@ -132,6 +132,7 @@
           <div class="row-actions">
             <button class="button secondary" data-action="view" type="button">Open</button>
             <button class="button secondary" data-action="pdf" type="button">PDF</button>
+            <button class="button secondary" data-action="rescan" type="button">Re-scan</button>
             <button class="button secondary" data-action="diff" type="button">Diff</button>
             <button class="button danger" data-action="delete" type="button">Delete</button>
           </div>
@@ -191,6 +192,8 @@
   function renderScanResult(result) {
     state.currentScan = result;
     const node = $("#scan-result");
+    const threshold = Number(state.confidenceThreshold || 0);
+    const findingMatchesThreshold = (finding) => Number(finding.confidence_score ?? parseInt(String(finding.confidence), 10) ?? 0) >= threshold;
     const summary = `
       <header class="result-header">
         <div>
@@ -200,11 +203,15 @@
         </div>
         <div class="result-actions">
           <a class="button secondary" href="/api/reports?action=pdf&scanId=${encodeURIComponent(result.id)}" target="_blank" rel="noopener">Download PDF</a>
-          <button class="button secondary" type="button" id="email-report">Email report</button>
         </div>
       </header>
     `;
-    const findings = (result.findings || []).map((finding) => `
+    const visibleFindings = (result.findings || []).filter(findingMatchesThreshold);
+    const hiddenCount = (result.findings || []).length - visibleFindings.length;
+    const filterSummary = threshold > 0
+      ? `<p class="muted">Showing ${visibleFindings.length} of ${result.findings.length} findings (≥ ${threshold}% confidence). ${hiddenCount} hidden.</p>`
+      : "";
+    const findings = visibleFindings.map((finding) => `
       <article class="finding-card ${finding.suppressed ? "suppressed" : ""}">
         <div class="finding-top">
           <span class="severity ${escape(finding.severity)}">${escape(finding.severity)}</span>
@@ -221,7 +228,7 @@
         ${finding.suppressed ? `<p class="muted">Suppressed: ${escape(finding.suppression_reason || "")}</p>` : `<button class="button secondary" data-action="suppress" data-finding="${escape(finding.id)}" type="button">Suppress</button>`}
       </article>
     `).join("");
-    node.innerHTML = `${summary}<div class="findings-grid">${findings || "<p class=\"muted\">No findings.</p>"}</div>`;
+    node.innerHTML = `${summary}${filterSummary}<div class="findings-grid">${findings || "<p class=\"muted\">No findings at this confidence threshold.</p>"}</div>`;
   }
 
   async function runScan(event) {
@@ -310,6 +317,24 @@
         window.scrollTo({ top: $("#scan-result").offsetTop - 60, behavior: "smooth" });
       } else if (action === "pdf") {
         window.open(`/api/reports?action=pdf&scanId=${encodeURIComponent(scanId)}`, "_blank");
+      } else if (action === "rescan") {
+        const row = event.target.closest(".history-row");
+        const target = row.querySelector(".row-title")?.textContent || "";
+        if (!confirm(`Re-scan ${target}?`)) return;
+        let payload;
+        if (target.includes("/") && !target.startsWith("pasted")) {
+          payload = { sourceType: "github", repoUrl: `https://github.com/${target}` };
+        } else {
+          alert("Re-scan is currently supported for GitHub-source scans only.");
+          return;
+        }
+        try {
+          const result = await api("/api/scans", { method: "POST", body: payload });
+          renderScanResult(result);
+          await loadHistory();
+        } catch (error) {
+          alert(error.message);
+        }
       } else if (action === "diff") {
         const against = prompt("Diff against which scan id?");
         if (!against) return;
@@ -319,17 +344,6 @@
     });
 
     $("#scan-result").addEventListener("click", async (event) => {
-      if (event.target.id === "email-report" && state.currentScan) {
-        const to = prompt("Send report to (email address):");
-        if (!to) return;
-        try {
-          await api("/api/reports?action=email", { method: "POST", body: { scanId: state.currentScan.id, to } });
-          alert("Report sent.");
-        } catch (error) {
-          alert(error.message);
-        }
-        return;
-      }
       const findingId = event.target.dataset.finding;
       if (event.target.dataset.action === "suppress" && findingId && state.currentScan) {
         const reason = prompt("Reason for suppressing this finding?", "False positive");
@@ -385,6 +399,37 @@
         await loadRepositories();
       }
     });
+
+    const closeButton = $("#close-account");
+    if (closeButton) {
+      closeButton.addEventListener("click", async () => {
+        if (!state.user) return;
+        const confirmEmail = prompt(
+          `This permanently deletes your workspace and every scan, key, suppression, repository connection, and audit log we hold for you.\n\nType "${state.user.email}" to confirm:`
+        );
+        if (!confirmEmail) return;
+        try {
+          await api("/api/auth?action=close-account", { method: "POST", body: { confirm: confirmEmail } });
+          alert("Workspace deleted. Signing out.");
+          state.user = null;
+          state.org = null;
+          showAuth();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+    }
+
+    const confidenceInput = $("#confidence-filter");
+    const confidenceLabel = $("#confidence-filter-label");
+    if (confidenceInput) {
+      confidenceInput.addEventListener("input", () => {
+        const value = Number(confidenceInput.value);
+        if (confidenceLabel) confidenceLabel.textContent = `≥ ${value}%`;
+        state.confidenceThreshold = value;
+        if (state.currentScan) renderScanResult(state.currentScan);
+      });
+    }
   }
 
   function bindTheme() {

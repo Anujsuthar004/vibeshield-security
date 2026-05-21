@@ -4,10 +4,10 @@ VibeShield ships a static security scanner. The project takes its own security p
 
 ## Reporting a vulnerability
 
-- Email: security@vibeshield.example
-- PGP: ask via email and we'll send the current public key.
-- Response SLA: acknowledgment within 2 business days, critical remediation target within 14 days.
-- Please do not file public GitHub issues for security reports.
+- Use GitHub Private Vulnerability Reporting: https://github.com/Anujsuthar004/vibeshield-security/security/advisories/new
+- Do not file public GitHub issues with exploit details.
+- Response target: acknowledgment within 5 business days, critical remediation target within 14 days.
+- There is no monitored email inbox for this project.
 
 ## Scope
 

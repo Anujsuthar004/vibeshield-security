@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
     }
     return methodNotAllowed(res, ["GET", "POST", "DELETE"]);
   } catch (error) {
-    const normalized = normalizeError(error);
+    const normalized = normalizeError(error, { route: "repositories", method: req.method });
     return sendJson(res, normalized.status, normalized.body);
   }
 };

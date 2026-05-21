@@ -162,7 +162,7 @@ module.exports = async function handler(req, res) {
     if (action === "patch") return await handlePatch(req, res, principal);
     return sendJson(res, 404, { error: "unknown_action" });
   } catch (error) {
-    const normalized = normalizeError(error);
+    const normalized = normalizeError(error, { route: "pr", method: req.method });
     return sendJson(res, normalized.status, normalized.body);
   }
 };

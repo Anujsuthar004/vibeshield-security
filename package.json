@@ -23,7 +23,6 @@
     "@babel/parser": "^7.24.7",
     "@babel/traverse": "^7.24.7",
     "bcryptjs": "^2.4.3",
-    "nodemailer": "^6.9.13",
     "pdfkit": "^0.15.0",
     "pg": "^8.11.5"
   },

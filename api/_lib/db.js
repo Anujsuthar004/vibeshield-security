@@ -5,7 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 
 const dataRoot = process.env.VIBESHIELD_DATA_DIR || path.join(os.tmpdir(), "vibeshield-data");
-const tables = ["users", "orgs", "memberships", "api_keys", "sessions", "scans", "repositories", "suppressions", "audit"];
+const tables = ["users", "orgs", "memberships", "api_keys", "sessions", "scans", "repositories", "suppressions", "audit", "rate_limits", "osv_cache"];
 
 let pgPool = null;
 let pgInitPromise = null;
@@ -162,6 +162,28 @@ async function runMigrations(pool) {
       detail JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE INDEX IF NOT EXISTS audit_created_idx ON audit (created_at);
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      key TEXT UNIQUE NOT NULL,
+      scope TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      reset_at TIMESTAMPTZ NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON rate_limits (reset_at);
+    CREATE TABLE IF NOT EXISTS osv_cache (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      cache_key TEXT UNIQUE NOT NULL,
+      ecosystem TEXT NOT NULL,
+      package_name TEXT NOT NULL,
+      version TEXT NOT NULL,
+      vulns JSONB NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS osv_cache_expires_idx ON osv_cache (expires_at);
   `);
 }
 

@@ -1,9 +1,6 @@
-const crypto = require("node:crypto");
+const ratelimit = require("./ratelimit");
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 30;
-const buckets = new Map();
 
 function sendJson(res, status, body) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -18,29 +15,19 @@ function methodNotAllowed(res, methods) {
 }
 
 function clientIp(req) {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim()) {
-    return forwarded.split(",")[0].trim();
-  }
-  return req.socket?.remoteAddress || "unknown";
+  return ratelimit.clientIp(req);
 }
 
-function rateLimit(req, { keyPrefix = "ip", max = RATE_LIMIT_MAX, windowMs = RATE_LIMIT_WINDOW_MS } = {}) {
-  const principalKey = req.__principal?.org_id || req.__principal?.user_id || clientIp(req);
-  const key = crypto.createHash("sha256").update(`${keyPrefix}:${principalKey}`).digest("hex");
-  const now = Date.now();
-  const current = buckets.get(key) || { count: 0, resetAt: now + windowMs };
-  if (now > current.resetAt) {
-    current.count = 0;
-    current.resetAt = now + windowMs;
-  }
-  current.count += 1;
-  buckets.set(key, current);
-  return {
-    ok: current.count <= max,
-    resetAt: current.resetAt,
-    remaining: Math.max(0, max - current.count)
-  };
+async function rateLimit(req, options) {
+  const principal = req.__principal;
+  const principalId = principal?.org_id || principal?.user_id || null;
+  const identifier = principalId || clientIp(req);
+  return ratelimit.check({
+    scope: options.scope,
+    identifier,
+    max: options.max,
+    windowMs: options.windowMs
+  });
 }
 
 function readBuffer(req) {
@@ -74,16 +61,36 @@ async function readJson(req) {
   }
 }
 
-function normalizeError(error) {
+function logEvent(level, event, fields = {}) {
+  try {
+    const payload = { ts: new Date().toISOString(), level, event, ...fields };
+    const text = JSON.stringify(payload);
+    if (level === "error") console.error(text);
+    else if (level === "warn") console.warn(text);
+    else console.log(text);
+  } catch {
+    // ignore logging failures
+  }
+}
+
+function normalizeError(error, context = {}) {
   const status = Number(error.statusCode || error.status || 500);
   if (status >= 500) {
-    return { status, body: { error: "internal_error", message: "Request failed. Try again or contact support." } };
+    logEvent("error", "request.error", {
+      ...context,
+      code: error.code || "internal_error",
+      message: error.message,
+      stack: error.stack ? error.stack.split("\n").slice(0, 4).join(" ") : undefined
+    });
+    return { status, body: { error: "internal_error", message: "Request failed. Try again or open a GitHub issue." } };
   }
+  logEvent("warn", "request.client_error", { ...context, code: error.code || "request_error", message: error.message, status });
   return { status, body: { error: error.code || "request_error", message: error.message } };
 }
 
 module.exports = {
   clientIp,
+  logEvent,
   methodNotAllowed,
   normalizeError,
   rateLimit,

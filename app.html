@@ -59,8 +59,8 @@
             <p class="muted" id="workspace-meta"></p>
           </div>
           <div class="dashboard-actions">
-            <span class="status-pill" id="github-pill">GitHub App: unknown</span>
-            <span class="status-pill" id="email-pill">Email: unknown</span>
+            <span class="status-pill" id="github-pill">GitHub App: …</span>
+            <span class="status-pill" id="db-pill">Storage: …</span>
             <button class="button secondary" id="logout-button" type="button">Sign out</button>
           </div>
         </header>
@@ -83,6 +83,10 @@
               <label><input type="checkbox" id="opt-deps" checked /> Dependency CVE scan (OSV)</label>
               <label><input type="checkbox" id="opt-patches" /> Generate fix patches</label>
             </div>
+            <label class="field confidence-control">
+              <span>Hide findings below <span id="confidence-filter-label">≥ 0%</span> confidence</span>
+              <input type="range" id="confidence-filter" min="0" max="95" step="5" value="0" />
+            </label>
             <button class="button primary full" type="submit" id="scan-submit">Run scan</button>
             <p class="fine-print" id="scan-note">Ready when you are.</p>
           </form>
@@ -129,7 +133,8 @@
             <dt>Workspace</dt><dd id="account-org">—</dd>
           </dl>
           <p class="muted">VibeShield is free to use. Every feature — private repo scans, PR comments, PDF reports, webhooks — works without a billing relationship.</p>
-          <p class="muted">Need to wipe your data? Contact <a href="mailto:privacy@vibeshield.example">privacy@vibeshield.example</a> or use the API to delete each scan.</p>
+          <p class="muted">Delete individual scans from the history list, or close your workspace below to wipe every scan, key, suppression, repository, and audit log we hold for you.</p>
+          <button type="button" class="button danger" id="close-account">Close workspace</button>
         </article>
       </section>
     </main>

@@ -40,7 +40,8 @@ const apiRoutes = [
   { match: /^\/api\/repositories$/, handler: "../api/repositories" },
   { match: /^\/api\/suppressions$/, handler: "../api/suppressions" },
   { match: /^\/api\/webhooks$/, handler: "../api/webhooks" },
-  { match: /^\/api\/pr$/, handler: "../api/pr" }
+  { match: /^\/api\/pr$/, handler: "../api/pr" },
+  { match: /^\/api\/cron$/, handler: "../api/cron" }
 ];
 
 const server = http.createServer(async (req, res) => {

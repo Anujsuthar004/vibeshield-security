@@ -86,7 +86,7 @@ module.exports = async function handler(req, res) {
     if (provider === "github") return await handleGithub(req, res);
     return sendJson(res, 404, { error: "unknown_provider", message: "Unsupported webhook provider." });
   } catch (error) {
-    const normalized = normalizeError(error);
+    const normalized = normalizeError(error, { route: "webhooks", method: req.method });
     return sendJson(res, normalized.status, normalized.body);
   }
 };
