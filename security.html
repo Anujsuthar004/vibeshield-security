@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="VibeShield's security model for source code scanning, repository access, retention, and secret handling." />
+    <meta name="description" content="VibeShield security model for source code scanning, repository access, retention, and secret handling." />
     <title>Security | VibeShield</title>
     <link rel="canonical" href="https://vibeshield-security.vercel.app/security" />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
@@ -12,19 +12,47 @@
   <body>
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="VibeShield home"><span class="brand-mark">VS</span><span>VibeShield</span></a>
-      <nav class="nav" aria-label="Primary"><a href="./index.html#scan">Scan</a><a href="./privacy.html">Privacy</a><a href="https://github.com/Anujsuthar004/vibeshield-security/issues">Contact</a></nav>
+      <nav class="nav" aria-label="Primary"><a href="./index.html#scan">Scan</a><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./dpa.html">DPA</a></nav>
     </header>
     <main class="legal-page">
       <section class="section-heading">
         <p class="eyebrow">Security</p>
-        <h1>How VibeShield should handle customer source code.</h1>
-        <p>This public build includes a deterministic backend scanner. Private repository scanning requires the GitHub App environment variables described in the setup guide.</p>
+        <h1>How VibeShield handles customer source code.</h1>
+        <p class="muted">This page describes the operating posture today. Items marked roadmap are commitments, not certifications.</p>
       </section>
       <section class="legal-grid">
-        <article><h3>Repository access</h3><p>Use a GitHub App with read-only repository permissions by default. Write permissions should be requested only for explicit patch workflows.</p></article>
-        <article><h3>Isolation</h3><p>Each scan uses a dedicated temporary worker directory that is removed after scan completion. Scan results expire after the configured retention window.</p></article>
-        <article><h3>Secrets</h3><p>Secret-looking values are redacted in returned evidence. The scanner stores findings, metadata, and fingerprints rather than raw source files.</p></article>
-        <article><h3>Deletion</h3><p>Scan results can be deleted through the scan result API before the retention window expires.</p></article>
+        <article>
+          <h3>Repository access</h3>
+          <p>Private repository scans require the VibeShield GitHub App with read-only repository contents permission. Patch generation uses contents:write only on a branch named <code>vibeshield/fixes-*</code> — never the default branch — and never amends customer commits.</p>
+        </article>
+        <article>
+          <h3>Worker isolation</h3>
+          <p>Each scan runs in a single-use temporary directory. The worker is wiped at the end of the scan, and a background reaper deletes any directory idle for more than an hour. Raw source files are not retained.</p>
+        </article>
+        <article>
+          <h3>Secret handling</h3>
+          <p>Secret-like strings (API keys, tokens, JWTs, AWS access keys, Slack tokens, OpenAI/Stripe keys) are detected and masked before findings are persisted. Stored evidence contains the redaction marker rather than the original value.</p>
+        </article>
+        <article>
+          <h3>Auth</h3>
+          <p>Passwords are bcrypt-hashed (cost 10). Sessions are HttpOnly, Secure, SameSite=Lax with a 14-day TTL. API keys are stored as SHA-256 hashes with a non-secret prefix shown in the dashboard. Webhooks must be signed with <code>X-Hub-Signature-256</code> and the configured webhook secret.</p>
+        </article>
+        <article>
+          <h3>Headers</h3>
+          <p>Edge responses set Content-Security-Policy, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy. The CSP forbids inline scripts, third-party origins, and framing.</p>
+        </article>
+        <article>
+          <h3>Disclosure</h3>
+          <p>Report security issues to <a href="mailto:security@vibeshield.example">security@vibeshield.example</a>. Encrypt with our PGP key on request. We commit to acknowledging reports within 2 business days and remediating critical issues within 14 days.</p>
+        </article>
+        <article>
+          <h3>Compliance roadmap</h3>
+          <p>We do not hold SOC 2 or ISO 27001 today. A SOC 2 Type I engagement is scoped for late 2026 if customer demand justifies the audit cost. Until that engagement is contracted, no compliance certification is claimed.</p>
+        </article>
+        <article>
+          <h3>Deletion</h3>
+          <p>Workspace owners can delete individual scans, revoke API keys, and request full workspace deletion via the privacy contact. Deletion completes within 30 days and is logged in the audit trail.</p>
+        </article>
       </section>
     </main>
   </body>

@@ -99,10 +99,10 @@ const controls = {
     "Backup and destructive action safeguards"
   ],
   "Supply Chain": [
-    "Known CVE dependency audit",
-    "Overprivileged package review",
+    "OSV-backed CVE lookups for npm, PyPI, RubyGems, Go, Packagist",
     "Lockfile and integrity enforcement",
-    "Typosquat and dependency confusion hints"
+    "Typosquat and dependency confusion hints",
+    "Overprivileged package review"
   ],
   "Platform": [
     "Open CORS detection",
@@ -132,6 +132,8 @@ const themeToggle = document.querySelector("#themeToggle");
 const scoreValue = document.querySelector("#scoreValue");
 const scanNote = document.querySelector("#scanNote");
 const archiveInput = document.querySelector("#archiveInput");
+const depToggle = document.querySelector("#depToggle");
+const patchToggle = document.querySelector("#patchToggle");
 
 let activeFilter = "all";
 
@@ -145,7 +147,8 @@ function escapeHtml(value) {
 }
 
 function renderFindings() {
-  const query = search.value.trim().toLowerCase();
+  if (!grid) return;
+  const query = (search?.value || "").trim().toLowerCase();
   const filtered = findings.filter((finding) => {
     const matchesSeverity = activeFilter === "all" || finding.severity === activeFilter;
     const haystack = `${finding.title} ${finding.category} ${finding.evidence} ${finding.fix}`.toLowerCase();
@@ -182,6 +185,7 @@ function renderFindings() {
 }
 
 function renderControls() {
+  if (!controlList) return;
   controlList.innerHTML = Object.entries(controls).map(([category, items]) => `
     <article class="control-category">
       <h3>${category}</h3>
@@ -190,33 +194,37 @@ function renderControls() {
   `).join("");
 }
 
-tabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
-    tabs.forEach((item) => item.classList.remove("active"));
-    tab.classList.add("active");
-    activeFilter = tab.dataset.filter;
-    renderFindings();
+if (tabs.length) {
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((item) => item.classList.remove("active"));
+      tab.classList.add("active");
+      activeFilter = tab.dataset.filter;
+      renderFindings();
+    });
   });
-});
+}
 
-segments.forEach((segment) => {
-  segment.addEventListener("click", () => {
-    segments.forEach((item) => item.classList.remove("active"));
-    segment.classList.add("active");
-    document.querySelectorAll(".github-field, .upload-field, .paste-field").forEach((field) => field.classList.add("hidden"));
-    document.querySelector(`.${segment.dataset.mode}-field`).classList.remove("hidden");
+if (segments.length) {
+  segments.forEach((segment) => {
+    segment.addEventListener("click", () => {
+      segments.forEach((item) => item.classList.remove("active"));
+      segment.classList.add("active");
+      document.querySelectorAll(".github-field, .upload-field, .paste-field").forEach((field) => field.classList.add("hidden"));
+      document.querySelectorAll(`.${segment.dataset.mode}-field`).forEach((field) => field.classList.remove("hidden"));
+    });
   });
-});
+}
 
-search.addEventListener("input", renderFindings);
+if (search) search.addEventListener("input", renderFindings);
 
 async function readUpload() {
-  const file = archiveInput.files?.[0];
+  const file = archiveInput?.files?.[0];
   if (!file) {
     throw new Error("Choose a source file to scan.");
   }
-  if (file.size > 120 * 1024) {
-    throw new Error("Upload a text source file under 120 KB for this scanner version.");
+  if (file.size > 160 * 1024) {
+    throw new Error("Upload a text source file under 160 KB for this scanner version.");
   }
   return {
     filename: file.name,
@@ -225,6 +233,7 @@ async function readUpload() {
 }
 
 function setScanStep(index) {
+  if (!progressBar) return;
   steps.forEach((item, itemIndex) => {
     item.className = itemIndex < index ? "done" : itemIndex === index ? "active" : "pending";
   });
@@ -232,91 +241,97 @@ function setScanStep(index) {
 }
 
 async function startBackendScan(mode) {
-  const repoValue = document.querySelector("#repoUrl").value.trim();
-  const pasteValue = document.querySelector("#codePaste").value.trim();
+  const repoValue = document.querySelector("#repoUrl")?.value?.trim() || "";
+  const pasteValue = document.querySelector("#codePaste")?.value?.trim() || "";
+  const payload = {
+    dependencyScan: Boolean(depToggle?.checked),
+    generatePatches: Boolean(patchToggle?.checked)
+  };
   if (mode === "github") {
-    return {
-      sourceType: "github",
-      repoUrl: repoValue
-    };
+    return { ...payload, sourceType: "github", repoUrl: repoValue };
   }
   if (mode === "upload") {
-    return {
-      sourceType: "paste",
-      ...(await readUpload())
-    };
+    return { ...payload, sourceType: "paste", ...(await readUpload()) };
   }
   return {
+    ...payload,
     sourceType: "paste",
     filename: "pasted-snippet.js",
     code: pasteValue || "app.get('/api/users/:id', (req, res) => db.query('SELECT * FROM users WHERE id = ' + req.params.id))"
   };
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const mode = document.querySelector(".segment.active").dataset.mode;
-  const repoValue = mode === "github" ? document.querySelector("#repoUrl").value : mode;
-  const target = repoValue.split("/").filter(Boolean).pop() || "pasted code";
-  scanTarget.textContent = target;
-  scanStatus.textContent = "Scanning";
-  scanNote.textContent = "Running backend scan in an isolated worker. Secret-looking values are redacted before evidence is returned.";
-  progressBar.style.width = "0%";
-  steps.forEach((step) => {
-    step.className = "pending";
-  });
-
-  try {
-    setScanStep(1);
-    const payload = await startBackendScan(mode);
-    setScanStep(2);
-    const response = await fetch("/api/scans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+if (form) {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const mode = document.querySelector(".segment.active")?.dataset?.mode || "paste";
+    const repoValue = mode === "github" ? document.querySelector("#repoUrl")?.value || "" : mode;
+    const target = (repoValue.split("/").filter(Boolean).pop() || "pasted code");
+    if (scanTarget) scanTarget.textContent = target;
+    if (scanStatus) scanStatus.textContent = "Scanning";
+    if (scanNote) scanNote.textContent = "Running scan in an isolated worker. Secret-looking values are redacted before evidence is returned.";
+    if (progressBar) progressBar.style.width = "0%";
+    steps.forEach((step) => {
+      step.className = "pending";
     });
-    setScanStep(3);
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || "Scan failed.");
-    }
-    setScanStep(5);
-    steps.forEach((item) => item.className = "done");
-    scanStatus.textContent = "Complete";
-    scanTarget.textContent = result.target || target;
-    scoreValue.textContent = String(result.score);
-    findings = result.findings.length ? result.findings : [];
-    activeFilter = "all";
-    tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.filter === "all"));
-    renderFindings();
-    scanNote.textContent = `Scan ${result.id} reviewed ${result.filesScanned} file(s), found ${result.findings.length} issue(s), and expires in ${result.retentionHours} hour(s).`;
-    document.querySelector("#findings").scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (error) {
-    scanStatus.textContent = "Failed";
-    progressBar.style.width = "100%";
-    findings = [{
-      severity: "high",
-      title: "Scanner could not complete",
-      category: "Scanner",
-      confidence: "100%",
-      evidence: error.message,
-      fix: "Check the repository URL, GitHub App configuration, or pasted input and try again."
-    }];
-    renderFindings();
-    scanNote.textContent = error.message;
-  }
-});
 
-themeToggle.addEventListener("click", () => {
-  const next = document.documentElement.dataset.theme === "dark" ? "" : "dark";
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("vibeshield-theme", next);
-});
+    try {
+      setScanStep(1);
+      const payload = await startBackendScan(mode);
+      setScanStep(2);
+      const response = await fetch("/api/scans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      setScanStep(3);
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Scan failed.");
+      }
+      setScanStep(5);
+      steps.forEach((item) => item.className = "done");
+      if (scanStatus) scanStatus.textContent = "Complete";
+      if (scanTarget) scanTarget.textContent = result.target || target;
+      if (scoreValue) scoreValue.textContent = String(result.score);
+      findings = result.findings.length ? result.findings : [];
+      activeFilter = "all";
+      tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.filter === "all"));
+      renderFindings();
+      if (scanNote) {
+        scanNote.textContent = `Scan ${result.id} reviewed ${result.filesScanned} file(s), found ${result.findings.length} issue(s). ${result.org_id ? "Saved to your workspace." : "Anonymous run — sign in to keep history."}`;
+      }
+      document.querySelector("#findings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      if (scanStatus) scanStatus.textContent = "Failed";
+      if (progressBar) progressBar.style.width = "100%";
+      findings = [{
+        severity: "high",
+        title: "Scanner could not complete",
+        category: "Scanner",
+        confidence: "100%",
+        evidence: error.message,
+        fix: "Check the repository URL or pasted input and try again. Sign in for higher quotas and private repos."
+      }];
+      renderFindings();
+      if (scanNote) scanNote.textContent = error.message;
+    }
+  });
+}
+
+if (themeToggle) {
+  themeToggle.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("vibeshield-theme", next);
+  });
+}
 
 document.documentElement.dataset.theme = localStorage.getItem("vibeshield-theme") || "";
 
 function drawRiskMap() {
   const canvas = document.querySelector("#riskCanvas");
+  if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;

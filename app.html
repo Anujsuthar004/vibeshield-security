@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="VibeShield scanner dashboard for authenticated security scans, history, API keys, and reports." />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="robots" content="noindex" />
+    <title>VibeShield Dashboard</title>
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="app-body">
+    <header class="topbar">
+      <a class="brand" href="./index.html" aria-label="VibeShield home">
+        <span class="brand-mark">VS</span>
+        <span>VibeShield</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#scan">Scan</a>
+        <a href="#history">History</a>
+        <a href="#repos">Repos</a>
+        <a href="#keys">API keys</a>
+        <a href="#account">Account</a>
+      </nav>
+      <button class="icon-button" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+        <span aria-hidden="true">◐</span>
+      </button>
+    </header>
+
+    <main class="app-main" id="app-main">
+      <section class="auth-shell" id="auth-shell">
+        <article class="auth-card" aria-labelledby="auth-title">
+          <header>
+            <p class="eyebrow">Workspace access</p>
+            <h1 id="auth-title">Sign in to VibeShield</h1>
+            <p class="muted">Scans are stored per workspace. Create an account or sign in to keep scan history, suppress findings, and manage API keys.</p>
+          </header>
+          <div class="auth-tabs" role="tablist">
+            <button class="auth-tab active" data-mode="login" role="tab">Sign in</button>
+            <button class="auth-tab" data-mode="signup" role="tab">Create account</button>
+          </div>
+          <form id="auth-form" class="auth-form">
+            <label class="field signup-only hidden"><span>Name</span><input type="text" name="name" autocomplete="name" maxlength="80" /></label>
+            <label class="field"><span>Email</span><input type="email" name="email" required autocomplete="email" /></label>
+            <label class="field"><span>Password</span><input type="password" name="password" required minlength="10" autocomplete="current-password" /></label>
+            <p class="fine-print signup-only hidden">By creating an account you agree to the <a href="./terms.html">terms</a>, <a href="./privacy.html">privacy notice</a>, and <a href="./dpa.html">DPA</a>.</p>
+            <button class="button primary full" type="submit" id="auth-submit">Sign in</button>
+            <p class="error-text hidden" id="auth-error" role="alert"></p>
+          </form>
+        </article>
+      </section>
+
+      <section class="dashboard hidden" id="dashboard">
+        <header class="dashboard-header">
+          <div>
+            <p class="eyebrow">Workspace</p>
+            <h1 id="workspace-title">…</h1>
+            <p class="muted" id="workspace-meta"></p>
+          </div>
+          <div class="dashboard-actions">
+            <span class="status-pill" id="github-pill">GitHub App: unknown</span>
+            <span class="status-pill" id="email-pill">Email: unknown</span>
+            <button class="button secondary" id="logout-button" type="button">Sign out</button>
+          </div>
+        </header>
+
+        <article class="dashboard-card" id="scan">
+          <header>
+            <h2>Run a scan</h2>
+            <p class="muted">Scans are stored persistently against your workspace. Source files are not retained — only redacted findings.</p>
+          </header>
+          <form id="scan-form">
+            <div class="segmented" role="tablist" aria-label="Scan source">
+              <button type="button" class="segment active" data-mode="github">GitHub repo</button>
+              <button type="button" class="segment" data-mode="paste">Paste snippet</button>
+            </div>
+            <label class="field github-field"><span>Repository URL</span><input id="repoUrl" type="url" placeholder="https://github.com/acme/vibe-app" /></label>
+            <label class="field github-field"><span>GitHub App installation id <span class="muted">(optional, required for private repos)</span></span><input id="installationId" type="text" inputmode="numeric" placeholder="12345678" /></label>
+            <label class="field github-field"><span>Branch <span class="muted">(optional)</span></span><input id="branchRef" type="text" placeholder="main" /></label>
+            <label class="field paste-field hidden"><span>Paste code</span><textarea id="codePaste" rows="8" placeholder="Paste route, policy, webhook handler, or ORM query"></textarea></label>
+            <div class="scan-options">
+              <label><input type="checkbox" id="opt-deps" checked /> Dependency CVE scan (OSV)</label>
+              <label><input type="checkbox" id="opt-patches" /> Generate fix patches</label>
+            </div>
+            <button class="button primary full" type="submit" id="scan-submit">Run scan</button>
+            <p class="fine-print" id="scan-note">Ready when you are.</p>
+          </form>
+          <aside class="run-status" id="run-status" aria-live="polite"></aside>
+          <div id="scan-result" class="scan-result"></div>
+        </article>
+
+        <article class="dashboard-card" id="history">
+          <header class="card-header">
+            <h2>Scan history</h2>
+            <button type="button" class="button secondary" id="refresh-history">Refresh</button>
+          </header>
+          <div class="history-table" id="history-rows"></div>
+        </article>
+
+        <article class="dashboard-card" id="repos">
+          <header class="card-header">
+            <h2>Connected repositories</h2>
+            <p class="muted">Registered repositories receive webhook scans on push and pull request events.</p>
+          </header>
+          <form id="repo-form" class="inline-form">
+            <input type="text" id="repo-full-name" placeholder="owner/repo" required pattern="^[\w.-]+/[\w.-]+$" />
+            <input type="text" id="repo-installation" placeholder="installation id (optional)" />
+            <button class="button primary" type="submit">Connect</button>
+          </form>
+          <div id="repo-list" class="repo-list"></div>
+        </article>
+
+        <article class="dashboard-card" id="keys">
+          <header class="card-header">
+            <h2>API keys</h2>
+            <button type="button" class="button primary" id="new-key">Create API key</button>
+          </header>
+          <p class="muted">Use API keys with the <code>POST /api/scans</code> endpoint. Pass them as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+          <div id="keys-list" class="keys-list"></div>
+        </article>
+
+        <article class="dashboard-card" id="account">
+          <header class="card-header">
+            <h2>Account</h2>
+          </header>
+          <dl class="account-meta">
+            <dt>Email</dt><dd id="account-email">—</dd>
+            <dt>Workspace</dt><dd id="account-org">—</dd>
+            <dt>Plan</dt><dd id="account-plan">free</dd>
+          </dl>
+          <p class="muted">Need to wipe your data? Contact <a href="mailto:privacy@vibeshield.example">privacy@vibeshield.example</a> or use the API to delete each scan.</p>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div>
+        <strong>VibeShield</strong>
+        <p>Scan dashboard. Source files are not retained server-side; only redacted findings and metadata are stored.</p>
+      </div>
+      <div class="footer-links">
+        <a href="./security.html">Security</a>
+        <a href="./privacy.html">Privacy</a>
+        <a href="./terms.html">Terms</a>
+        <a href="./dpa.html">DPA</a>
+        <a href="./index.html">Marketing</a>
+      </div>
+    </footer>
+
+    <script src="./dashboard.js"></script>
+  </body>
+</html>

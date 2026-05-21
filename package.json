@@ -1,25 +1,32 @@
 {
   "name": "vibeshield-security",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Security check platform for vibe-coded SaaS and AI-built apps.",
   "scripts": {
     "start": "node scripts/local-server.js",
     "dev": "node scripts/local-server.js",
-    "build": "node scripts/build-check.js"
+    "build": "node scripts/build-check.js",
+    "migrate": "node scripts/migrate.js"
   },
   "keywords": [
     "security",
     "saas",
     "vibe coding",
     "code scanning",
-    "supabase",
     "authentication",
     "application security"
   ],
   "author": "VibeShield",
   "license": "MIT",
-  "devDependencies": {},
+  "dependencies": {
+    "@babel/parser": "^7.24.7",
+    "@babel/traverse": "^7.24.7",
+    "bcryptjs": "^2.4.3",
+    "nodemailer": "^6.9.13",
+    "pdfkit": "^0.15.0",
+    "pg": "^8.11.5"
+  },
   "engines": {
     "node": "20.x"
   }

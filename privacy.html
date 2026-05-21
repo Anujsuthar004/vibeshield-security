@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="VibeShield privacy approach for repository scanning and security reports." />
-    <title>Privacy | VibeShield</title>
+    <meta name="description" content="VibeShield privacy notice covering data collection, retention, secret handling, and subject rights." />
+    <title>Privacy notice | VibeShield</title>
     <link rel="canonical" href="https://vibeshield-security.vercel.app/privacy" />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
@@ -12,19 +12,71 @@
   <body>
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="VibeShield home"><span class="brand-mark">VS</span><span>VibeShield</span></a>
-      <nav class="nav" aria-label="Primary"><a href="./index.html#trust">Trust</a><a href="./security.html">Security</a><a href="https://github.com/Anujsuthar004/vibeshield-security/issues">Contact</a></nav>
+      <nav class="nav" aria-label="Primary"><a href="./index.html#trust">Trust</a><a href="./security.html">Security</a><a href="./terms.html">Terms</a><a href="./dpa.html">DPA</a></nav>
     </header>
     <main class="legal-page">
       <section class="section-heading">
-        <p class="eyebrow">Privacy</p>
-        <h1>Privacy posture for a code security platform.</h1>
-        <p>The scanner processes repository source or pasted code only to produce security findings. Raw source files are not retained after scan execution.</p>
+        <p class="eyebrow">Privacy notice</p>
+        <h1>What VibeShield collects, why, and how long we keep it.</h1>
+        <p class="muted">Effective date: 2026-05-21. Operator: VibeShield Security (operator). For questions email <a href="mailto:privacy@vibeshield.example">privacy@vibeshield.example</a>.</p>
       </section>
+
       <section class="legal-grid">
-        <article><h3>Data minimization</h3><p>The current scanner stores result metadata and redacted findings. It does not store raw repository files after the worker finishes.</p></article>
-        <article><h3>Retention</h3><p>Scan results expire automatically within the configured retention window, capped at 24 hours in this implementation.</p></article>
-        <article><h3>Subprocessors</h3><p>Public deployment uses Vercel hosting and GitHub APIs for repository access. No external model provider is used by the deterministic scanner.</p></article>
-        <article><h3>Exports</h3><p>Findings redact secret-looking values before returning evidence to the browser.</p></article>
+        <article>
+          <h3>1. Data we process</h3>
+          <ul>
+            <li><strong>Account data</strong>: email, hashed password (bcrypt), display name, workspace name.</li>
+            <li><strong>Scan inputs</strong>: repository URL, branch reference, pasted code, manifest files. Source files are processed in an ephemeral worker and discarded after the scan completes — only redacted findings and metadata are persisted.</li>
+            <li><strong>Scan outputs</strong>: rule id, severity, title, file path, line number, redacted evidence snippet, fix guidance, confidence score, suppression flags.</li>
+            <li><strong>Operational data</strong>: API key hashes, session ids, audit log entries (action, actor, timestamp), rate limiting buckets.</li>
+            <li><strong>GitHub App data</strong>: installation id, repository full name, default branch, webhook secret. We never store the GitHub App private key in the database; it lives only as an environment variable on the runtime.</li>
+          </ul>
+        </article>
+        <article>
+          <h3>2. What we do not store</h3>
+          <ul>
+            <li>Raw source files after a scan completes.</li>
+            <li>Plain-text secret values. Secret-like strings are masked before findings are written.</li>
+            <li>Plain-text API keys. Only a salted SHA-256 hash and a non-secret prefix are stored.</li>
+            <li>Production environment variables of customer repos. Manifest files are read solely for CVE matching.</li>
+          </ul>
+        </article>
+        <article>
+          <h3>3. Legal basis (GDPR Art. 6)</h3>
+          <p>Performance of contract (Art. 6(1)(b)) for delivering the scanner. Legitimate interest (Art. 6(1)(f)) for fraud prevention, abuse mitigation, and security audit logs. Consent (Art. 6(1)(a)) is requested separately before sending optional product email.</p>
+        </article>
+        <article>
+          <h3>4. Subprocessors</h3>
+          <ul>
+            <li><strong>Vercel Inc.</strong> — hosting, edge network, function execution.</li>
+            <li><strong>Neon / Supabase / Vercel Postgres</strong> (whichever you point <code>DATABASE_URL</code> at) — managed PostgreSQL for findings and metadata.</li>
+            <li><strong>GitHub, Inc.</strong> — source retrieval over the GitHub App API.</li>
+            <li><strong>osv.dev (Google)</strong> — public CVE advisory lookup for dependency scanning.</li>
+            <li><strong>SMTP provider</strong> (configurable via SMTP_HOST) — outbound email delivery if you enable email reports.</li>
+          </ul>
+          <p>A current subprocessor list is maintained at <a href="https://vibeshield-security.vercel.app/dpa">/dpa</a>.</p>
+        </article>
+        <article>
+          <h3>5. Retention</h3>
+          <ul>
+            <li>Scan findings and audit logs: retained for the lifetime of the workspace, deletable by the workspace owner via <code>DELETE /api/scans/&lt;id&gt;</code> or workspace closure.</li>
+            <li>Sessions: 14 days, refreshed on use.</li>
+            <li>Rate limit buckets: 60 seconds in process memory.</li>
+            <li>Ephemeral worker directories: removed at the end of every scan (or one hour idle, whichever is sooner).</li>
+          </ul>
+        </article>
+        <article>
+          <h3>6. Subject rights</h3>
+          <p>EU/UK/CA residents can request export or deletion of their workspace data by emailing <a href="mailto:privacy@vibeshield.example">privacy@vibeshield.example</a>. We respond within 30 days. Workspace owners can also self-serve deletion via the dashboard or the scans API.</p>
+        </article>
+        <article>
+          <h3>7. Security</h3>
+          <p>Passwords are hashed with bcrypt (cost 10). API keys are stored as SHA-256 hashes. Sessions are <code>HttpOnly; Secure; SameSite=Lax</code>. Webhooks must be signed with <code>X-Hub-Signature-256</code>. CSP, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy are enforced at the edge.</p>
+        </article>
+        <article>
+          <h3>8. Changes</h3>
+          <p>Material changes to this notice are announced at least 30 days in advance via in-product banner and email to workspace owners.</p>
+        </article>
       </section>
     </main>
   </body>

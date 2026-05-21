@@ -2,32 +2,16 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const db = require("./db");
 
-const storageRoot = process.env.VIBESHIELD_STORAGE_DIR || path.join(os.tmpdir(), "vibeshield-scans");
 const workerRoot = process.env.VIBESHIELD_WORKER_DIR || path.join(os.tmpdir(), "vibeshield-workers");
 
-function retentionHours() {
-  const configured = Number(process.env.SCAN_RETENTION_HOURS || "24");
-  if (!Number.isFinite(configured) || configured <= 0) {
-    return 24;
-  }
-  return Math.min(configured, 24);
-}
-
-async function ensureDirs() {
-  await fsp.mkdir(storageRoot, { recursive: true, mode: 0o700 });
+async function ensureWorkerRoot() {
   await fsp.mkdir(workerRoot, { recursive: true, mode: 0o700 });
 }
 
-function resultPath(scanId) {
-  if (!/^[a-f0-9-]{36}$/.test(scanId)) {
-    throw Object.assign(new Error("Invalid scan id."), { statusCode: 400, code: "invalid_scan_id" });
-  }
-  return path.join(storageRoot, `${scanId}.json`);
-}
-
 async function createWorkerDir(scanId) {
-  await ensureDirs();
+  await ensureWorkerRoot();
   return fsp.mkdtemp(path.join(workerRoot, `${scanId}-`));
 }
 
@@ -38,76 +22,90 @@ async function removeWorkerDir(dir) {
   await fsp.rm(dir, { recursive: true, force: true });
 }
 
-async function saveScan(result) {
-  await ensureDirs();
-  const expiresAt = new Date(Date.now() + retentionHours() * 60 * 60 * 1000).toISOString();
-  const stored = { ...result, expiresAt, retentionHours: retentionHours() };
-  await fsp.writeFile(resultPath(result.id), JSON.stringify(stored, null, 2), { mode: 0o600 });
-  return stored;
+async function cleanupWorkers() {
+  await ensureWorkerRoot();
+  const now = Date.now();
+  const entries = fs.existsSync(workerRoot) ? await fsp.readdir(workerRoot, { withFileTypes: true }) : [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const dir = path.join(workerRoot, entry.name);
+    try {
+      const stat = await fsp.stat(dir);
+      if (now - stat.mtimeMs > 60 * 60 * 1000) {
+        await fsp.rm(dir, { recursive: true, force: true });
+      }
+    } catch {
+      // ignore
+    }
+  }
 }
 
-async function getScan(scanId) {
-  await ensureDirs();
-  const file = resultPath(scanId);
-  let raw;
-  try {
-    raw = await fsp.readFile(file, "utf8");
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      throw Object.assign(new Error("Scan result not found."), { statusCode: 404, code: "scan_not_found" });
-    }
-    throw error;
-  }
-  const result = JSON.parse(raw);
-  if (Date.parse(result.expiresAt) <= Date.now()) {
-    await fsp.rm(file, { force: true });
-    throw Object.assign(new Error("Scan result expired."), { statusCode: 410, code: "scan_expired" });
-  }
+async function saveScan({ scanId, orgId, userId, target, sourceType, ref, status, score, result }) {
+  await db.insert("scans", {
+    id: scanId,
+    org_id: orgId,
+    user_id: userId,
+    target,
+    source_type: sourceType,
+    ref: ref || null,
+    status,
+    score: Math.round(score || 0),
+    result
+  });
   return result;
 }
 
-async function deleteScan(scanId) {
-  await ensureDirs();
-  await fsp.rm(resultPath(scanId), { force: true });
+async function getScan({ scanId, orgId }) {
+  if (!/^[a-f0-9-]{36}$/.test(String(scanId))) {
+    throw Object.assign(new Error("Invalid scan id."), { statusCode: 400, code: "invalid_scan_id" });
+  }
+  const record = await db.findOne("scans", { id: scanId });
+  if (!record) {
+    throw Object.assign(new Error("Scan not found."), { statusCode: 404, code: "scan_not_found" });
+  }
+  if (orgId && record.org_id !== orgId) {
+    throw Object.assign(new Error("Scan not found."), { statusCode: 404, code: "scan_not_found" });
+  }
+  const result = typeof record.result === "string" ? JSON.parse(record.result) : record.result;
+  return { ...result, id: record.id, org_id: record.org_id, created_at: record.created_at };
 }
 
-async function cleanupExpired() {
-  await ensureDirs();
-  const now = Date.now();
-  const storageEntries = fs.existsSync(storageRoot) ? await fsp.readdir(storageRoot, { withFileTypes: true }) : [];
-  for (const entry of storageEntries) {
-    if (!entry.isFile() || !entry.name.endsWith(".json")) {
-      continue;
-    }
-    const file = path.join(storageRoot, entry.name);
-    try {
-      const parsed = JSON.parse(await fsp.readFile(file, "utf8"));
-      if (Date.parse(parsed.expiresAt) <= now) {
-        await fsp.rm(file, { force: true });
-      }
-    } catch {
-      await fsp.rm(file, { force: true });
-    }
+async function deleteScan({ scanId, orgId }) {
+  const record = await db.findOne("scans", { id: scanId });
+  if (!record) return;
+  if (orgId && record.org_id !== orgId) {
+    throw Object.assign(new Error("Scan not found."), { statusCode: 404, code: "scan_not_found" });
   }
+  await db.deleteWhere("scans", { id: scanId });
+}
 
-  const workerEntries = fs.existsSync(workerRoot) ? await fsp.readdir(workerRoot, { withFileTypes: true }) : [];
-  for (const entry of workerEntries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    const dir = path.join(workerRoot, entry.name);
-    const stat = await fsp.stat(dir);
-    if (now - stat.mtimeMs > 60 * 60 * 1000) {
-      await fsp.rm(dir, { recursive: true, force: true });
-    }
-  }
+async function listScans({ orgId, target, limit }) {
+  const filter = { org_id: orgId };
+  if (target) filter.target = target;
+  const records = await db.findMany("scans", filter, { orderBy: "created_at", direction: "desc", limit });
+  return records.map((record) => {
+    const result = typeof record.result === "string" ? JSON.parse(record.result) : record.result;
+    return {
+      id: record.id,
+      target: record.target,
+      ref: record.ref,
+      source_type: record.source_type,
+      score: record.score,
+      status: record.status,
+      created_at: record.created_at,
+      finding_count: Array.isArray(result?.findings) ? result.findings.length : 0,
+      critical_count: Array.isArray(result?.findings) ? result.findings.filter((finding) => finding.severity === "critical").length : 0,
+      suppressed_count: Array.isArray(result?.findings) ? result.findings.filter((finding) => finding.suppressed).length : 0
+    };
+  });
 }
 
 module.exports = {
-  cleanupExpired,
+  cleanupWorkers,
   createWorkerDir,
   deleteScan,
   getScan,
+  listScans,
   removeWorkerDir,
   saveScan
 };

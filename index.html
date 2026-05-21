@@ -34,11 +34,12 @@
         <span>VibeShield</span>
       </a>
       <nav class="nav" aria-label="Primary">
-        <a href="#scan">Scan</a>
+        <a href="#scan">Try it</a>
         <a href="#findings">Findings</a>
         <a href="#trust">Trust</a>
         <a href="#controls">Controls</a>
         <a href="#pricing">Pricing</a>
+        <a href="./app.html" class="nav-cta">Sign in</a>
       </nav>
       <button class="icon-button" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">
         <span aria-hidden="true">◐</span>
@@ -52,11 +53,12 @@
           <h1>Find the missing security model before attackers read your shipped code.</h1>
           <p class="hero-text">
             VibeShield reviews vibe-coded apps for ownership checks, secrets, unsafe data access, injection paths,
-            webhook spoofing, Supabase RLS gaps, exposed keys, and business logic abuse.
+            webhook spoofing, Supabase RLS gaps, exposed keys, and business logic abuse — with AST analysis,
+            dependency CVE checks, and pull request integration.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#scan">Start secure scan</a>
-            <a class="button secondary" href="#trust">Review trust model</a>
+            <a class="button primary" href="./app.html">Open dashboard</a>
+            <a class="button secondary" href="#scan">Try a quick scan</a>
           </div>
         </div>
 
@@ -69,9 +71,9 @@
           </div>
           <canvas id="riskCanvas" width="680" height="430" aria-label="Animated security risk map"></canvas>
           <div class="console-stats">
-            <span><strong>42</strong> checks</span>
+            <span><strong>60+</strong> checks</span>
             <span><strong>11</strong> categories</span>
-            <span><strong>0</strong> code retained</span>
+            <span><strong>0</strong> source files retained</span>
           </div>
         </div>
       </section>
@@ -82,37 +84,37 @@
           <span class="metric-label">Security score</span>
         </article>
         <article>
-          <span class="metric-value">8m</span>
-          <span class="metric-label">Median scan time</span>
+          <span class="metric-value">AST</span>
+          <span class="metric-label">JS/TS analysis</span>
         </article>
         <article>
-          <span class="metric-value">SOC2</span>
-          <span class="metric-label">Roadmap-ready controls</span>
+          <span class="metric-value">OSV</span>
+          <span class="metric-label">Dependency CVE feed</span>
         </article>
         <article>
-          <span class="metric-value">24h</span>
-          <span class="metric-label">Default code retention</span>
+          <span class="metric-value">PR</span>
+          <span class="metric-label">Patch comments</span>
         </article>
       </section>
 
       <section class="workspace" id="scan">
         <div class="section-heading">
-          <p class="eyebrow">Secure intake</p>
-          <h2>Scan a repo without handing over your whole kingdom.</h2>
-          <p>Connect a repository, upload a source file, or paste a risky route. VibeShield runs read-only checks in an isolated worker and returns redacted evidence with fix steps.</p>
+          <p class="eyebrow">Quick scan</p>
+          <h2>Paste a snippet for a no-signup taste of the scanner.</h2>
+          <p>For private GitHub repositories, scan history, suppression rules, and email/PR reports, <a href="./app.html">open the dashboard</a>.</p>
         </div>
 
         <div class="scanner-layout">
           <form class="scan-panel" id="scanForm">
             <div class="segmented" role="tablist" aria-label="Scan source">
-              <button type="button" class="segment active" data-mode="github">GitHub</button>
+              <button type="button" class="segment active" data-mode="paste">Paste</button>
+              <button type="button" class="segment" data-mode="github">Public GitHub</button>
               <button type="button" class="segment" data-mode="upload">Upload</button>
-              <button type="button" class="segment" data-mode="paste">Paste</button>
             </div>
 
-            <label class="field github-field">
-              <span>Repository URL</span>
-              <input id="repoUrl" type="url" placeholder="https://github.com/acme/vibe-app" value="https://github.com/Anujsuthar004/vibeshield-security" />
+            <label class="field hidden github-field">
+              <span>Public repository URL</span>
+              <input id="repoUrl" type="url" placeholder="https://github.com/acme/vibe-app" />
             </label>
 
             <label class="field hidden upload-field">
@@ -120,20 +122,20 @@
               <input type="file" id="archiveInput" accept=".js,.jsx,.ts,.tsx,.py,.rb,.php,.go,.java,.sql,.prisma,.json,.env,.yml,.yaml,.html,.md,.txt" />
             </label>
 
-            <label class="field hidden paste-field">
+            <label class="field paste-field">
               <span>Paste route, policy, or SQL snippet</span>
               <textarea id="codePaste" rows="7" placeholder="Paste server route, Supabase policy, webhook handler, or ORM query"></textarea>
             </label>
 
             <div class="scan-options">
-              <label><input type="checkbox" checked /> Secret redaction before analysis</label>
-              <label><input type="checkbox" checked /> Dependency CVE check</label>
-              <label><input type="checkbox" checked /> Supabase RLS review</label>
-              <label><input type="checkbox" /> Generate pull request patch</label>
+              <label><input type="checkbox" checked disabled /> Secret redaction before analysis</label>
+              <label><input type="checkbox" id="depToggle" /> Dependency CVE check (requires package manifest)</label>
+              <label><input type="checkbox" disabled /> Supabase RLS review</label>
+              <label><input type="checkbox" id="patchToggle" /> Show suggested patches</label>
             </div>
 
-            <button class="button primary full" type="submit">Run security scan</button>
-            <p class="fine-print" id="scanNote">Backend scanner is active. GitHub scans use public repo access unless GitHub App environment variables are configured for private repos.</p>
+            <button class="button primary full" type="submit">Run quick scan</button>
+            <p class="fine-print" id="scanNote">Anonymous quick scans skip persistence and rate-limit aggressively. <a href="./app.html">Sign in</a> for history, suppression, PR comments, and email reports.</p>
           </form>
 
           <aside class="run-panel" aria-live="polite">
@@ -143,11 +145,11 @@
             </div>
             <div class="progress-track"><span id="progressBar"></span></div>
             <ol class="scan-steps" id="scanSteps">
-              <li class="pending">Clone into isolated worker</li>
+              <li class="pending">Read source into isolated worker</li>
               <li class="pending">Redact secrets and classify stack</li>
-              <li class="pending">Trace auth and ownership checks</li>
-              <li class="pending">Audit database and API boundaries</li>
-              <li class="pending">Build fix plan</li>
+              <li class="pending">AST traversal for JS/TS, language rules elsewhere</li>
+              <li class="pending">Cross-reference dependency advisories</li>
+              <li class="pending">Build prioritized fix plan</li>
             </ol>
           </aside>
         </div>
@@ -183,19 +185,19 @@
         <div class="trust-grid">
           <article>
             <h3>Read-only by default</h3>
-            <p>GitHub access uses least-privilege scopes. Patch generation is opt-in and separated from scan execution.</p>
+            <p>GitHub access uses least-privilege scopes. Patch generation is opt-in and never writes to your default branch.</p>
           </article>
           <article>
             <h3>Ephemeral workers</h3>
-            <p>Each scan runs in a single-use container. Source is removed after the retention window or immediately on request.</p>
+            <p>Each scan runs in a single-use directory. Raw source is never persisted; only redacted findings live in the database.</p>
           </article>
           <article>
             <h3>Secret-aware pipeline</h3>
-            <p>Keys are detected, masked, and excluded from model prompts. Findings store fingerprints, not raw secret values.</p>
+            <p>Keys are detected, masked, and excluded from stored evidence. Findings store fingerprints, not raw secret values.</p>
           </article>
           <article>
             <h3>Audit-ready metadata</h3>
-            <p>Each scan returns a traceable scan ID, target, file count, retention window, and control flags without storing raw source code.</p>
+            <p>Every action — scan, suppression, key creation, PR comment — is recorded in an immutable audit trail per workspace.</p>
           </article>
         </div>
       </section>
@@ -204,40 +206,43 @@
         <div class="section-heading compact">
           <p class="eyebrow">Launch packages</p>
           <h2>Start with a single repo, scale into continuous security review.</h2>
+          <p class="muted">Self-serve checkout is in preview. Today the dashboard runs on the free tier so you can validate VibeShield on your own code first.</p>
         </div>
         <div class="pricing-grid">
           <article class="plan">
-            <h3>Starter</h3>
-            <p class="price">$49<span>/repo</span></p>
-            <p>One-time scan for a shipped MVP or client project.</p>
+            <h3>Free</h3>
+            <p class="price">$0<span>/forever</span></p>
+            <p>Up to 25 scans/month per workspace. Public repos, paste, dashboard, history, AST analysis, dependency CVE scan.</p>
             <ul>
-              <li>Auth, secrets, RLS, XSS, API key, and dependency checks</li>
-              <li>Prioritized fix report</li>
-              <li>Exportable PDF-ready summary</li>
+              <li>Workspace + API keys</li>
+              <li>Persistent scan history + diffing</li>
+              <li>PDF reports</li>
             </ul>
-            <a class="button secondary full" href="https://github.com/Anujsuthar004/vibeshield-security/issues/new?title=Starter%20scan%20request">Request scan</a>
+            <a class="button secondary full" href="./app.html">Start free</a>
           </article>
           <article class="plan featured">
             <h3>Team</h3>
             <p class="price">$199<span>/mo</span></p>
             <p>Continuous review for teams shipping AI-assisted product changes.</p>
             <ul>
-              <li>GitHub app integration</li>
-              <li>Pull request risk comments</li>
-              <li>Security model drift alerts</li>
+              <li>Private repos via GitHub App</li>
+              <li>Pull request comments and patch branches</li>
+              <li>Webhook scans on push events</li>
+              <li>Email delivery and SMTP integration</li>
             </ul>
-            <a class="button primary full" href="https://github.com/Anujsuthar004/vibeshield-security/issues/new?title=Team%20plan%20waitlist">Join waitlist</a>
+            <a class="button primary full" href="mailto:sales@vibeshield.example?subject=Team%20plan%20interest">Request Team access</a>
           </article>
           <article class="plan">
             <h3>Agency</h3>
             <p class="price">Custom</p>
-            <p>Audit many client apps without commingling code or secrets.</p>
+            <p>Audit many client apps without commingling code, secrets, or findings.</p>
             <ul>
-              <li>Client workspace isolation</li>
+              <li>Workspace isolation per client</li>
               <li>White-label reports</li>
               <li>Retention and access controls</li>
+              <li>DPA and security review support</li>
             </ul>
-            <a class="button secondary full" href="https://github.com/Anujsuthar004/vibeshield-security/issues/new?title=Agency%20plan%20inquiry">Talk to us</a>
+            <a class="button secondary full" href="mailto:sales@vibeshield.example?subject=Agency%20plan%20inquiry">Talk to us</a>
           </article>
         </div>
       </section>
@@ -257,9 +262,12 @@
         <p>Security checks for code that was built fast and now needs to survive contact with the internet.</p>
       </div>
       <div class="footer-links">
+        <a href="./app.html">Dashboard</a>
         <a href="./security.html">Security</a>
         <a href="./privacy.html">Privacy</a>
-        <a href="https://github.com/Anujsuthar004/vibeshield-security/issues">Contact</a>
+        <a href="./terms.html">Terms</a>
+        <a href="./dpa.html">DPA</a>
+        <a href="mailto:hello@vibeshield.example">Contact</a>
       </div>
     </footer>
 

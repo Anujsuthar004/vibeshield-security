@@ -404,7 +404,7 @@ canvas {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .scan-options {
@@ -692,6 +692,269 @@ canvas {
   margin: 0;
   color: var(--muted);
   line-height: 1.65;
+}
+
+.nav-cta {
+  padding: 8px 16px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: var(--primary);
+  color: #ffffff !important;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error-text {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.status-pill.ok {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+
+.button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: transparent;
+}
+
+.app-body {
+  background: var(--bg);
+}
+
+.app-main {
+  padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 56px);
+}
+
+.auth-shell {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 200px);
+}
+
+.auth-card {
+  width: min(440px, 100%);
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 18px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 4px;
+  gap: 4px;
+}
+
+.auth-tab {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-tab.active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard {
+  display: grid;
+  gap: 22px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dashboard-card {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.dashboard-card header {
+  margin-bottom: 16px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-card h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.history-table,
+.keys-list,
+.repo-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.history-row,
+.key-row,
+.repo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.row-title {
+  margin: 0;
+  font-weight: 800;
+}
+
+.row-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.row-stats {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.score-chip {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 800;
+}
+
+.scan-result {
+  margin-top: 24px;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.inline-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inline-form input {
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 0 12px;
+  min-height: 42px;
+}
+
+.account-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 20px;
+  margin: 0;
+}
+
+.account-meta dt {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.finding-card.suppressed {
+  opacity: 0.55;
+}
+
+.finding-card details {
+  margin-top: 8px;
+}
+
+.finding-card pre {
+  margin: 0;
+  padding: 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.run-status {
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .history-row,
+  .key-row,
+  .repo-row {
+    grid-template-columns: 1fr;
+  }
+
+  .row-actions {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 1020px) {

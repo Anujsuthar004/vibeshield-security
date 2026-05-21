@@ -1,59 +1,68 @@
 # VibeShield Security
 
-A standalone SaaS prototype for scanning vibe-coded apps and GitHub repositories against common security failures: broken access control, missing auth middleware, JWT misuse, SQL/NoSQL injection, exposed secrets, weak Supabase RLS, unsafe webhooks, open CORS, mass assignment, predictable tokens, and more.
+Static security scanner for vibe-coded SaaS and AI-built applications. AST-based JS/TS analysis, language-specific rule sets for Python/Ruby/Go/PHP/SQL, dependency CVE matching via OSV, GitHub App integration with PR comments and patch branches, PDF/email reports, and a multi-tenant dashboard.
 
-## Run locally
-
-```bash
-cd ~/Desktop/vibeshield-security
-npm run start
-```
-
-Then open:
-
-```text
-http://localhost:4173
-```
-
-No package install is required. The app uses static HTML, CSS, JavaScript, and Vercel-compatible Node API functions.
-
-## Publish
-
-This project is deployed on Vercel at:
-
-```text
-https://vibeshield-security.vercel.app
-```
-
-It can also be deployed as a static site on GitHub Pages, Netlify, Cloudflare Pages, or any static host.
-
-Build check:
+## Quick start (local)
 
 ```bash
-npm run build
+npm install
+npm run dev
+# open http://localhost:4173/app.html
 ```
 
-For GitHub Pages, set the Pages source to the repository root on the default branch.
+- The dashboard works out of the box on a file-backed JSON DB in `/tmp/vibeshield-data/`.
+- Public repository scans work without any GitHub configuration.
 
-## What is included
+## Configuration
 
-- Secure repository intake flow with GitHub URL, upload, and paste-code modes
-- Backend scanner API across auth, injection, data exposure, validation, XSS, database/storage, keys, infra, and business logic
-- Findings dashboard with severity, confidence, evidence, owner, and remediation
-- Trust center explaining isolation, retention, secret redaction, and least-privilege GitHub access
-- Policy checklist for security controls that vibe-coded apps commonly miss
-- SEO metadata, favicon, web manifest, robots.txt, sitemap.xml, 404 page, security page, privacy page, and license
-- GitHub App setup guide for read-only private repository scanning
-- Explicit scan result lookup and deletion endpoints
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `DATABASE_URL` | Postgres connection string. When set, schema is auto-migrated. | unset → file-backed JSON |
+| `PGSSL` | Set to `disable` to skip SSL when connecting to local Postgres. | enabled |
+| `GITHUB_APP_ID` + `GITHUB_PRIVATE_KEY` | Enables private repo scans and PR integration. | unset → public only |
+| `GITHUB_INSTALLATION_ID` | Default installation if requests do not pass one. | unset |
+| `GITHUB_WEBHOOK_SECRET` | Required to receive `/api/webhooks?provider=github`. | unset |
+| `SMTP_HOST` + `SMTP_USER` + `SMTP_PASS` (+ optional `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`) | Enables email delivery of PDF reports. | unset |
+| `DISALLOW_ANONYMOUS_SCANS` | If `true`, every scan must be authenticated. | anonymous quick-scans allowed |
+| `VIBESHIELD_DATA_DIR` | Override file-backed storage root. | OS temp dir |
 
-## Production backend notes
+Run `npm run migrate` after setting `DATABASE_URL` to confirm the schema applies cleanly.
 
-The current public build has a real deterministic backend scanner. Before accepting customer private repositories at scale, add:
+## HTTP API
 
-- Persistent tenant/account mapping for GitHub installation IDs
-- Durable scan-result storage with encryption at rest
-- Customer-visible deletion controls and audit logs
-- Webhook signature verification for GitHub App events
-- Queue-backed workers for large repositories
-- External dependency CVE provider integration
-- Webhook signature verification and replay protection
+| Endpoint | Method | Auth | Purpose |
+| --- | --- | --- | --- |
+| `/api/health` | GET | — | Service feature flags and readiness. |
+| `/api/auth?action=signup\|login\|logout\|me` | POST/GET | mixed | Account flow. |
+| `/api/keys` | GET/POST/DELETE | session | Manage API keys. |
+| `/api/scans` | POST | API key or session (anonymous allowed for public/paste) | Run a scan. |
+| `/api/scans` | GET | session/API key | Workspace history. |
+| `/api/scans/{id}` | GET/DELETE | session/API key | Fetch or delete a scan. |
+| `/api/scans/{id}/diff?against=...` | GET | session/API key | Diff against another scan in the same workspace. |
+| `/api/scans/{id}/suppress?finding=...` | POST | session/API key | Suppress a finding. |
+| `/api/suppressions` | GET/POST/DELETE | session/API key | Workspace-wide suppression rules. |
+| `/api/repositories` | GET/POST/DELETE | session/API key | Manage repo connections (used by the webhook handler). |
+| `/api/reports?action=pdf\|email` | GET/POST | session/API key | Export PDF or email report. |
+| `/api/pr?action=comment\|patch` | POST | session/API key | Post PR summary or open patch branch + PR. |
+| `/api/webhooks?provider=github` | POST | HMAC | GitHub push / pull_request scans. |
+
+All authenticated endpoints accept either `Authorization: Bearer <vss_…>` API key or the session cookie set by `/api/auth?action=login`.
+
+## Scanner features
+
+- **AST analysis for JS/TS** using `@babel/parser`. Detects token storage, hardcoded JWT secrets, mass assignment, predictable randomness, `dangerouslySetInnerHTML`, CORS wildcards, SQL injection via template/concat, shell exec from user input, `eval`/`Function`, webhook signature gaps, and secret literals.
+- **Per-language rules** for Python, Ruby, Go, PHP, and SQL, including Django/Flask/Rails/Gin/Express patterns.
+- **Dependency CVE matching** against `osv.dev` for npm, PyPI, RubyGems, Go, Packagist, Maven. No API key required.
+- **Suppression** via `.vibeshield.ignore` (path/rule/finding patterns) committed in the repository, or via workspace suppression API.
+- **Confidence calibration** derived from rule type (`literal_credential`, `ast_match`, `semantic_match`, `regex_match`, `dependency_cve`, `inference`) with per-rule signal adjustment.
+- **PR integration** that opens an isolated `vibeshield/fixes-*` branch with fix guidance and (optionally) opens a pull request back to the default branch.
+- **PDF reports** rendered with `pdfkit`. Email delivery uses `nodemailer` when SMTP is configured.
+
+## Trust model
+
+- Source files are processed in single-use worker directories and removed at the end of each scan.
+- Findings store redacted evidence (secret-looking strings masked) and fingerprints — never raw secret values.
+- API keys are stored as SHA-256 hashes; the plain text key is shown once at creation and never persisted.
+- Audit logs record every state-changing action with actor and timestamp.
+
+See `security.html`, `privacy.html`, `terms.html`, and `dpa.html` for the customer-facing documents.

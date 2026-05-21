@@ -30,31 +30,25 @@ function serveFile(res, filePath, status = 200) {
   });
 }
 
-function apiResponse(res) {
-  return {
-    setHeader: (...args) => res.setHeader(...args),
-    end: (...args) => res.end(...args),
-    get statusCode() {
-      return res.statusCode;
-    },
-    set statusCode(value) {
-      res.statusCode = value;
-    }
-  };
-}
+const apiRoutes = [
+  { match: /^\/api\/health$/, handler: "../api/health" },
+  { match: /^\/api\/auth$/, handler: "../api/auth" },
+  { match: /^\/api\/keys$/, handler: "../api/keys" },
+  { match: /^\/api\/scans$/, handler: "../api/scans" },
+  { match: /^\/api\/scans\/.+/, handler: "../api/scans/[id]" },
+  { match: /^\/api\/reports$/, handler: "../api/reports" },
+  { match: /^\/api\/repositories$/, handler: "../api/repositories" },
+  { match: /^\/api\/suppressions$/, handler: "../api/suppressions" },
+  { match: /^\/api\/webhooks$/, handler: "../api/webhooks" },
+  { match: /^\/api\/pr$/, handler: "../api/pr" }
+];
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-
-  if (url.pathname === "/api/health") {
-    return require("../api/health")(req, apiResponse(res));
-  }
-  if (url.pathname === "/api/scans") {
-    return require("../api/scans")(req, apiResponse(res));
-  }
-  if (url.pathname.startsWith("/api/scans/")) {
-    req.query = { id: decodeURIComponent(url.pathname.split("/").pop()) };
-    return require("../api/scans/[id]")(req, apiResponse(res));
+  for (const route of apiRoutes) {
+    if (route.match.test(url.pathname)) {
+      return require(route.handler)(req, res);
+    }
   }
 
   const cleanPath = decodeURIComponent(url.pathname).replace(/^\/+/, "");
