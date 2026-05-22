@@ -1,58 +1,13 @@
-const parser = require("@babel/parser");
-const traverseModule = require("@babel/traverse");
 const { buildFinding } = require("../findings");
-
-const traverse = traverseModule.default || traverseModule;
-
-const PARSE_OPTIONS = {
-  sourceType: "unambiguous",
-  allowReturnOutsideFunction: true,
-  allowAwaitOutsideFunction: true,
-  allowImportExportEverywhere: true,
-  errorRecovery: true,
-  plugins: [
-    "jsx",
-    "typescript",
-    "decorators-legacy",
-    "classProperties",
-    "topLevelAwait",
-    "asyncGenerators",
-    "optionalChaining",
-    "nullishCoalescingOperator",
-    "objectRestSpread",
-    "dynamicImport",
-    "exportDefaultFrom"
-  ]
-};
-
-function safeParse(source) {
-  try {
-    return parser.parse(source, PARSE_OPTIONS);
-  } catch (error) {
-    return null;
-  }
-}
-
-function getCalleeName(node) {
-  if (!node) return null;
-  if (node.type === "Identifier") return node.name;
-  if (node.type === "MemberExpression") {
-    const object = getCalleeName(node.object);
-    const property = node.computed ? null : node.property?.name;
-    if (object && property) return `${object}.${property}`;
-    return property || object || null;
-  }
-  return null;
-}
-
-function getLiteralString(node) {
-  if (!node) return null;
-  if (node.type === "StringLiteral") return node.value;
-  if (node.type === "TemplateLiteral" && node.expressions.length === 0) {
-    return node.quasis.map((quasi) => quasi.value.cooked).join("");
-  }
-  return null;
-}
+const { analyzeTaint } = require("./taint");
+const vibestack = require("./vibestack");
+const {
+  getCalleeName,
+  getLiteralString,
+  isCommented,
+  safeParse,
+  traverse
+} = require("./_jsutils");
 
 function templateUsesIdentifiers(node, names) {
   if (!node || node.type !== "TemplateLiteral") return false;
@@ -81,23 +36,16 @@ function fileLooksProtected(source) {
   return /(requireUser|requireAuth|getServerSession|authMiddleware|verifyToken|withAuth|isAuthenticated|currentUser|protect\()/i.test(source);
 }
 
-function isCommented(file, line) {
-  const text = file.content.split(/\r?\n/)[line - 1] || "";
-  return /^\s*(\/\/|\*|#)/.test(text);
-}
-
 function looksLikeApiRoute(file) {
-  return /(^|\/)(api|routes|server|controllers)\//i.test(file.path) || /\.(controller|route|handler)\.(js|ts|tsx|jsx|mjs|cjs)$/.test(file.path);
+  return (
+    /(^|\/)(api|routes|server|controllers)\//i.test(file.path) ||
+    /\.(controller|route|handler)\.(js|ts|tsx|jsx|mjs|cjs)$/.test(file.path)
+  );
 }
 
-function analyze(file) {
+function coreJsRules(file, ast) {
   const findings = [];
   const source = file.content;
-  if (!source.trim()) return findings;
-  const ast = safeParse(source);
-  if (!ast) {
-    return analyzeFallback(file);
-  }
 
   let usesWebhookConstruct = false;
   let usesAuthGuard = fileLooksProtected(source);
@@ -152,7 +100,7 @@ function analyze(file) {
       if (callee === "localStorage.setItem" || callee === "sessionStorage.setItem") {
         const firstArg = node.arguments[0];
         const key = getLiteralString(firstArg);
-        if (key && /^(token|jwt|accessToken|auth|session)$/i.test(key)) {
+        if (key && /^(token|jwt|accessToken|access_token|auth|session|authToken|refreshToken|refresh_token)$/i.test(key)) {
           findings.push(buildFinding({
             rule: "auth.token_in_browser_storage",
             severity: "high",
@@ -382,7 +330,7 @@ function analyze(file) {
     }));
   }
 
-  if (/stripe|webhook/i.test(file.path) && /req\.body|JSON\.parse/i.test(source) && !usesWebhookConstruct) {
+  if (/stripe|webhook/i.test(file.path) && /(req\.body|JSON\.parse|request\.json|request\.text|await\s+request\.formData)/i.test(source) && !usesWebhookConstruct) {
     findings.push(buildFinding({
       rule: "webhooks.unverified_signature",
       severity: "critical",
@@ -435,6 +383,18 @@ function analyzeFallback(file) {
       }));
     }
   });
+  return findings;
+}
+
+function analyze(file) {
+  if (!file.content.trim()) return [];
+  const ast = safeParse(file.content);
+  if (!ast) return analyzeFallback(file);
+
+  const findings = [];
+  findings.push(...coreJsRules(file, ast));
+  findings.push(...analyzeTaint(file, ast));
+  findings.push(...vibestack.analyze(file, ast));
   return findings;
 }
 
