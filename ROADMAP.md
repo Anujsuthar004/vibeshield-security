@@ -2,7 +2,7 @@
 
 This is the honest list. Items at the top are committed; items near the bottom are aspirations.
 
-## Now (v0.4 — landing this branch)
+## Shipped in v0.4
 
 - [x] **Vibe-coder-specific rule packs.** Next.js App Router (server actions, route handlers, middleware), Supabase (service-role abuse, RLS bypass, storage), Stripe (webhook + idempotency), Clerk (svix + null checks).
 - [x] **Intra-procedural taint tracking** for JS/TS. Track tainted identifiers across statements within a function and flag when they reach a sink (`db.query`, `exec`, `redirect`, `dangerouslySetInnerHTML`, etc).

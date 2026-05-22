@@ -2,7 +2,7 @@
 
 A free, open-source security scanner aimed at **vibe coders** — solo founders and small teams shipping Next.js + Supabase + Stripe SaaS apps built mostly with AI assistance.
 
-**Status: v0.3, alpha.** Useful as a sanity check before deploying. Not a replacement for Semgrep, Snyk Code, or CodeQL.
+**Status: v0.4, alpha.** Useful as a pre-deploy sanity check for the Next.js + Supabase + Stripe + Clerk stack. Not a replacement for Semgrep, Snyk Code, or CodeQL.
 
 Live demo and dashboard: <https://vibeshield-security.vercel.app>
 

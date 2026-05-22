@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
   return sendJson(res, 200, {
     ok: true,
     service: "vibeshield-scanner",
-    version: "0.3.0",
+    version: "0.4.0",
     githubAppConfigured: githubConfigured(),
     databaseConfigured: Boolean(process.env.DATABASE_URL),
     features: {
