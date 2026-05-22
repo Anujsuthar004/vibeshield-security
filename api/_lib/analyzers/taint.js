@@ -121,13 +121,20 @@ function expressionIsTainted(node, tainted, depth = 0) {
       const callee = getCalleeName(node.callee);
       if (callee && TAINT_CALL_NAMES.has(callee)) return true;
       if (callee && /\.(json|text|formData|arrayBuffer)$/.test(callee)) {
-        // request.json() etc. — body parsing.
+        return true;
+      }
+      // .get / .getAll on a tainted receiver: req.nextUrl.searchParams.get('x')
+      if (
+        callee &&
+        /\.(get|getAll)$/.test(callee) &&
+        (node.callee.type === "MemberExpression" || node.callee.type === "OptionalMemberExpression") &&
+        expressionIsTainted(node.callee.object, tainted, depth + 1)
+      ) {
         return true;
       }
       if (callee === "Object.fromEntries" && node.arguments[0]) {
         return expressionIsTainted(node.arguments[0], tainted, depth + 1);
       }
-      // Recurse into args defensively.
       return node.arguments.some((arg) => expressionIsTainted(arg, tainted, depth + 1));
     }
     case "AwaitExpression":
