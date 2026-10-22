@@ -68,7 +68,8 @@ function coreJsRules(file, ast) {
       const line = path.node.loc?.start.line;
       if (isCommented(file, line || 0)) return;
       const credentialMatchers = [
-        { rx: /sk-(live|test|proj)-[A-Za-z0-9_-]{12,}/, label: "Stripe live/test/proj key" },
+        { rx: /\b[sr]k_(live|test)_[A-Za-z0-9]{16,}/, label: "Stripe secret key" },
+        { rx: /sk-proj-[A-Za-z0-9_-]{12,}/, label: "OpenAI project key" },
         { rx: /ghp_[A-Za-z0-9_]{20,}/, label: "GitHub PAT" },
         { rx: /github_pat_[A-Za-z0-9_]{20,}/, label: "GitHub fine-grained PAT" },
         { rx: /AKIA[A-Z0-9]{12,}/, label: "AWS access key id" },

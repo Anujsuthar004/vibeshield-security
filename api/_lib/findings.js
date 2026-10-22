@@ -2,7 +2,8 @@ const crypto = require("node:crypto");
 
 const SEVERITY_WEIGHTS = { critical: 18, high: 10, medium: 5, low: 2 };
 const SECRET_MASKS = [
-  [/(sk-(?:live|test|proj)-)[A-Za-z0-9_-]{12,}/g, "$1[redacted]"],
+  [/(sk-proj-)[A-Za-z0-9_-]{12,}/g, "$1[redacted]"],
+  [/(sk_(?:live|test)_)[A-Za-z0-9]{12,}/g, "$1[redacted]"],
   [/(ghp_|github_pat_)[A-Za-z0-9_]{12,}/g, "$1[redacted]"],
   [/(AKIA)[A-Z0-9]{12,}/g, "$1[redacted]"],
   [/(xox[abprs]-)[A-Za-z0-9-]{12,}/g, "$1[redacted]"],
