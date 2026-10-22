@@ -59,4 +59,4 @@ function analyze(file) {
   return findings;
 }
 
-module.exports = { analyze };
+module.exports = { analyze, SECRET_PATTERNS };

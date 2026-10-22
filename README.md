@@ -14,7 +14,11 @@ Live demo and dashboard: <https://vibeshield-security.vercel.app>
 | --- | --- |
 | AST-based JS/TS analysis (`@babel/parser`) | 14 core rules |
 | Intra-procedural taint tracking (JS/TS) — SQL, shell, eval, redirect, fs, SSRF, XSS sinks | 7 sinks |
-| Vibe-stack rule packs — Next.js App Router, Supabase, Stripe, Clerk | 11 rules |
+| Vibe-stack rule packs — Next.js App Router, Supabase, Stripe, Clerk, plus an ownership (IDOR) check | 12 rules |
+| Supabase migration linter — tables without RLS, `(true)` policies, unscoped write policies, RLS-bypassing views, `SECURITY DEFINER` without `search_path` | 6 rules |
+| Deployed-site scan (`--url`): secrets and Supabase service-role keys in shipped JavaScript, public source maps | 12 checks |
+| Paste-ready fix prompts for Cursor / Claude Code (`--fix-prompt`, JSON, SARIF, Action summary) | Yes |
+| MCP server for AI editors + git pre-commit hook | Yes |
 | Python / Ruby / Go / PHP / SQL rules (regex-based, line-level) | 26 rules |
 | Secret literal patterns (Stripe, GitHub, AWS, Slack, OpenAI, SendGrid, Twilio, Resend, Supabase JWT) | 11 patterns |
 | CLI with SARIF output + GitHub Action (annotations, job summary, Code Scanning upload) | Yes |
@@ -29,7 +33,7 @@ Live demo and dashboard: <https://vibeshield-security.vercel.app>
 | Postgres-backed rate limiting, audit log retention, OSV cache | Yes |
 | Account self-deletion (cascades across every table) | Yes |
 
-**Total static rules: 70.** Plus dynamic CVE matches from OSV.
+**Total static rules: 77.** Plus 12 deployed-site checks and dynamic CVE matches from OSV.
 
 ### Vibe-stack rules
 
@@ -48,6 +52,20 @@ These are the rules built specifically for the Next.js + Supabase + Stripe + Cle
 | `clerk.webhook_unverified` | Clerk webhook handler doesn't call `new Webhook(secret).verify(...)` (svix) |
 | `clerk.current_user_no_null_check` | `await currentUser()` result dereferenced without `if (!user)` guard |
 | `webhooks.unverified_signature` | Generic webhook handler reads body before signature verification |
+| `authz.idor_missing_ownership_check` | Route handler or Server Action loads/changes a record by a client-supplied id (`params.id`, `formData.get("projectId")`, action argument) and never ties it to the signed-in user |
+
+### Supabase migration rules
+
+These run across every `.sql` file at once, so a table created in one migration and secured in a later one isn't flagged. They're active when SQL lives under `supabase/` or `package.json` depends on `@supabase/*`.
+
+| Rule | What it catches |
+| --- | --- |
+| `supabase.rls_not_enabled` | `create table` in `public` with no `enable row level security` in any migration |
+| `supabase.rls_policy_write_true` | `insert` / `update` / `delete` / `all` policy with `using (true)` or `with check (true)` |
+| `supabase.rls_policy_not_user_scoped` | Write policy that never references `auth.uid()` / `auth.jwt()` |
+| `supabase.rls_policy_public_read` | `select` policy with `using (true)` reachable by `anon` (fine for public content, flagged as medium) |
+| `supabase.view_bypasses_rls` | View in `public` without `security_invoker = true` |
+| `supabase.security_definer_search_path` | `SECURITY DEFINER` function without `set search_path` |
 
 ### Taint sinks (intra-procedural, JS/TS)
 
@@ -73,6 +91,8 @@ These are honest limitations, not roadmap-marketing:
 - **No transitive dependency CVE resolution.** We read direct deps from `package.json` and a handful of lockfiles; we don't walk the full dep graph.
 - **The GitHub Action doesn't post PR comments.** It annotates the diff, writes a job summary, and uploads SARIF; a summary comment on the PR still needs the GitHub App.
 - **Secret coverage is narrow.** Catches Stripe, GitHub, AWS, Slack, OpenAI, SendGrid, Twilio, Resend keys and JWTs. Does not catch GCP service accounts, Azure connection strings, Firebase admin keys, or PostgreSQL / MongoDB connection URLs.
+- **The RLS linter only reads migrations.** Tables or policies created in the Supabase dashboard and never exported to `supabase/migrations/` aren't seen. Run `supabase db pull` first.
+- **The ownership (IDOR) check is a heuristic.** It looks for the caller's identity (`auth()`, `currentUser()`, `session.user.id`) in the query filter or in a comparison. Ownership enforced in a helper in another file, or by RLS on a user-session Supabase client, isn't followed; suppress those.
 - **Webhook signature checks cover Stripe and Clerk (svix) only.** GitHub `X-Hub-Signature-256`, Slack signing secret, Discord ed25519 — not caught yet.
 - **High false positive rate on `auth.unprotected_route`.** It's keyword-based; expect to suppress some.
 - **Single-maintainer project.** There is no monitored email inbox. Use [GitHub Issues](https://github.com/Anujsuthar004/vibeshield-security/issues) for everything, and [GitHub Private Vulnerability Reporting](https://github.com/Anujsuthar004/vibeshield-security/security/advisories/new) for security disclosures.
@@ -132,9 +152,38 @@ npx vibeshield . --sarif -o vibeshield.sarif --fail-on high
 
 # Quiet, JSON output, no network
 npx vibeshield . --json --no-deps --quiet
+
+# One prompt covering every high+ finding, to paste into Cursor / Claude Code
+npx vibeshield . --fix-prompt --severity high
+
+# Check what your deployed site ships to browsers (keys, service-role JWTs, source maps)
+npx vibeshield --url https://myapp.vercel.app
+
+# Block commits that add high/critical issues
+npx vibeshield --install-hook
 ```
 
+`--url` fetches the page, its same-origin scripts and (for Next.js) every chunk in the build manifest. It never follows third-party scripts. Only point it at sites you own.
+
+`--install-hook` writes `.git/hooks/pre-commit` running `vibeshield --staged --fail-on high`. `--staged` analyzes the whole repo but only reports findings in staged files. With husky or lefthook, call that command from your existing hook instead.
+
 From a clone, `node scripts/cli.js` works the same way. `vibeshield --help` lists every flag. The CLI returns exit code `1` when `--fail-on <level>` matches at least one finding, so it slots straight into a CI pipeline.
+
+### AI editors (MCP)
+
+VibeShield ships an MCP server so Claude Code, Cursor and other MCP clients can scan the code they just wrote and get fix instructions back.
+
+```bash
+claude mcp add vibeshield -- npx -y -p vibeshield vibeshield-mcp
+```
+
+For Cursor, add to `.cursor/mcp.json`:
+
+```json
+{ "mcpServers": { "vibeshield": { "command": "npx", "args": ["-y", "-p", "vibeshield", "vibeshield-mcp"] } } }
+```
+
+Tools: `vibeshield_scan` (`path`, optional `files` to report only on what changed, `severity`, `dependencies`) and `vibeshield_scan_url` (`url`).
 
 ### GitHub Action
 
@@ -157,7 +206,7 @@ jobs:
           fail-on: high
 ```
 
-Every run annotates the offending lines in the PR diff and writes a findings table to the job summary. Both work on private repos with no extra setup. SARIF upload to GitHub Code Scanning is on by default; it needs Code Scanning to be available (free on public repos, GitHub Advanced Security on private ones), so set `upload-sarif: false` if you don't have it.
+Every run annotates the offending lines in the PR diff and writes a findings table to the job summary, with a paste-ready fix prompt underneath. Both work on private repos with no extra setup. SARIF upload to GitHub Code Scanning is on by default; it needs Code Scanning to be available (free on public repos, GitHub Advanced Security on private ones), so set `upload-sarif: false` if you don't have it.
 
 | Input | Default | Purpose |
 | --- | --- | --- |

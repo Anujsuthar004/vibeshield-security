@@ -5,6 +5,7 @@ const ruby = require("./ruby");
 const go = require("./go");
 const php = require("./php");
 const sql = require("./sql");
+const supabaseRls = require("./supabase-rls");
 
 const LANGUAGES = [
   { rx: /\.(js|jsx|ts|tsx|mjs|cjs|vue|svelte)$/i, language: "javascript", analyzer: javascript },
@@ -34,7 +35,13 @@ function analyzeFile(file) {
   return findings;
 }
 
+// Per-file analyzers plus checks that need to see the whole project at once.
+function analyzeFiles(files) {
+  return [...files.flatMap(analyzeFile), ...supabaseRls.analyzeProject(files)];
+}
+
 module.exports = {
   analyzeFile,
+  analyzeFiles,
   detectLanguage
 };

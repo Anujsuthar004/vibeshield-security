@@ -11,6 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { meetsSeverity, renderSarif } = require("./cli");
+const { combinedFixPrompt } = require("../api/_lib/prompts");
 
 function parseArgs(argv) {
   const args = { input: null, sarif: "vibeshield.sarif", failOn: "high", scanPath: "." };
@@ -60,6 +61,14 @@ function renderSummary(result, active, failOn, failed) {
     const loc = finding.file ? `\`${finding.file}${finding.line ? `:${finding.line}` : ""}\`` : "general";
     lines.push(`| ${finding.severity} | ${escapeCell(finding.title)} | ${loc} | \`${finding.rule}\` | ${escapeCell(finding.fix)} |`);
   }
+  lines.push("");
+  lines.push("<details><summary>Fix with your AI editor: copy this prompt into Cursor / Claude Code</summary>");
+  lines.push("");
+  lines.push("````text");
+  lines.push(combinedFixPrompt(active));
+  lines.push("````");
+  lines.push("");
+  lines.push("</details>");
   return lines.join("\n") + "\n";
 }
 

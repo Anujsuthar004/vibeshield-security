@@ -14,18 +14,23 @@ This is the honest list. Items at the top are committed; items near the bottom a
 - [x] **GitHub Action** that runs the CLI, annotates PR diffs, writes a job summary and uploads SARIF, without needing the GitHub App.
 - [x] **Publishable CLI**: `npx vibeshield`.
 - [x] **Benchmark regression tests** (`npm test`): the fixture's expected findings are asserted, so recall drops and new noise both fail CI.
+- [x] **Supabase RLS migration linter**: tables without RLS, `(true)` and unscoped write policies, RLS-bypassing views, `SECURITY DEFINER` without `search_path`.
+- [x] **Ownership (IDOR) check** for route handlers and Server Actions.
+- [x] **Deployed-site scan** (`--url`): secrets and service-role keys in shipped JavaScript, public source maps.
+- [x] **Fix prompts** for AI editors in every output format.
+- [x] **MCP server** (`vibeshield-mcp`) and **pre-commit hook** (`--install-hook`, `--staged`).
+- [x] **Precision pass**: webhook routes no longer get session-auth findings; `auth.unprotected_route` only fires on real handlers.
+- [ ] **Live Supabase check**: with the project's anon key, test which tables are actually readable/writable (catches dashboard-made tables the migration linter can't see). Needs proof of project ownership first.
 - [ ] **PR summary comment from the Action** (today that needs the GitHub App).
 - [ ] **More secret patterns**: Firebase admin, GCP service accounts, Azure connection strings, MongoDB / PostgreSQL connection URLs in code, Cloudinary, Mux, Algolia. (Twilio, SendGrid and Resend shipped in v0.4.)
 - [ ] **Webhook signature checks for Slack signing secret, GitHub `X-Hub-Signature-256`, Discord ed25519.** (Clerk / svix shipped in v0.4.)
 - [ ] **Better dependency scanning**: parse `yarn.lock` and `pnpm-lock.yaml` content. Surface transitive vulnerabilities.
-- [ ] **Pre-commit hook** via `husky` template / `lefthook` config.
 
 ## After that (v0.6+)
 
 - [ ] **Inter-procedural taint tracking** within a file (follow values across functions in the same module).
 - [ ] **Python AST analyzer** via Tree-sitter or a Python sidecar process.
 - [ ] **Ruby AST analyzer** likewise.
-- [ ] **Supabase RLS policy linter** for `.sql` files in `supabase/migrations/`. Detect policies that allow anon access, missing `auth.uid() =` checks, write policies with no scoping.
 - [ ] **Server-rendered XSS rules** for Next.js metadata / OG image generation / `notFound()` paths.
 - [ ] **Race condition detection** around Stripe charge creation, balance updates, and credit deductions.
 

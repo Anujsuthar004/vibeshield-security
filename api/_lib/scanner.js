@@ -1,10 +1,11 @@
 const crypto = require("node:crypto");
 const { authHeaderFor, githubRequest, isConfigured } = require("./github-app");
-const { analyzeFile } = require("./analyzers");
+const { analyzeFiles } = require("./analyzers");
 const { analyzeFiles: analyzeDependencies } = require("./analyzers/dependencies");
 const { applySuppressions, loadOrgSuppressions, parseIgnoreFile } = require("./ignore");
 const { calculateScore, uniqueFindings } = require("./findings");
 const { findingsWithPatches } = require("./patcher");
+const { withFixPrompts } = require("./prompts");
 const { cleanupWorkers, createWorkerDir, removeWorkerDir, saveScan } = require("./storage");
 
 const MAX_FILES = 200;
@@ -116,7 +117,7 @@ async function runScan(body, context = {}) {
     const ignoreRules = ignoreFile ? parseIgnoreFile(ignoreFile.content) : [];
     const filesToScan = source.files.filter((file) => !ignoreRules.some((rule) => rule.kind === "path" && rule.regex.test(file.path)));
 
-    const codeFindings = uniqueFindings(filesToScan.flatMap(analyzeFile));
+    const codeFindings = uniqueFindings(analyzeFiles(filesToScan));
     let depFindings = [];
     if (body.dependencyScan !== false) {
       depFindings = await analyzeDependencies(filesToScan, { enabled: body.dependencyScan !== false });
@@ -130,7 +131,7 @@ async function runScan(body, context = {}) {
       target: source.target
     });
 
-    const withPatches = body.generatePatches ? findingsWithPatches(finalFindings) : finalFindings;
+    const withPatches = withFixPrompts(body.generatePatches ? findingsWithPatches(finalFindings) : finalFindings);
     const activeFindings = withPatches.filter((finding) => !finding.suppressed);
 
     const result = {

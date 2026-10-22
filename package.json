@@ -3,14 +3,18 @@
   "version": "0.4.0",
   "description": "Security scanner for vibe-coded Next.js + Supabase + Stripe + Clerk apps. CLI, SARIF output, GitHub Action.",
   "bin": {
-    "vibeshield": "scripts/cli.js"
+    "vibeshield": "scripts/cli.js",
+    "vibeshield-mcp": "scripts/mcp.js"
   },
   "files": [
     "scripts/cli.js",
+    "scripts/mcp.js",
     "api/_lib/analyzers/",
     "api/_lib/db.js",
     "api/_lib/findings.js",
-    "api/_lib/ignore.js"
+    "api/_lib/ignore.js",
+    "api/_lib/prompts.js",
+    "api/_lib/url-scan.js"
   ],
   "scripts": {
     "start": "node scripts/local-server.js",

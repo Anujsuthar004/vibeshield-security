@@ -142,13 +142,33 @@ function hasAuthCallNearby(text) {
   return /(auth\s*\(|getServerSession|currentUser\s*\(|requireUser|requireAuth|withAuth|protectRoute|isAuthenticated|session\.user|user\?\.id|user\.id)/i.test(text);
 }
 
+const WEBHOOK_PATH_RE = /webhook/i;
+const SIGNATURE_VERIFICATION_RE = /(webhooks\.constructEvent|new\s+Webhook\s*\(|\bwh\.verify\s*\(|timingSafeEqual|createHmac\s*\(|crypto\.subtle\.verify|verify(Webhook)?Signature\s*\(|verifyWebhook\s*\(|validateRequest\s*\(|verifyKey\s*\()/;
+
+// Webhook routes authenticate the sender by signature, not by user session.
+function isWebhookFile(file) {
+  return WEBHOOK_PATH_RE.test(file.path);
+}
+
+function verifiesWebhookSignature(source) {
+  return SIGNATURE_VERIFICATION_RE.test(source);
+}
+
+// Clerk webhooks get the svix-specific rule in vibestack.js.
+function isClerkWebhookFile(file) {
+  return isWebhookFile(file) && /clerk/i.test(file.content);
+}
+
 module.exports = {
   getCalleeName,
   getDirectives,
   getImports,
   getLiteralString,
   hasAuthCallNearby,
+  isClerkWebhookFile,
   isCommented,
+  isWebhookFile,
+  verifiesWebhookSignature,
   looksLikeClientComponent,
   looksLikeNextjsProject,
   looksLikeRouteHandler,

@@ -4,10 +4,15 @@ const vibestack = require("./vibestack");
 const {
   getCalleeName,
   getLiteralString,
+  isClerkWebhookFile,
   isCommented,
+  isWebhookFile,
   safeParse,
-  traverse
+  traverse,
+  verifiesWebhookSignature
 } = require("./_jsutils");
+
+const NEXTJS_ROUTE_RE = /(^|\/)app\/.+\/route\.(ts|tsx|js|jsx|mjs|cjs)$/i;
 
 function templateUsesIdentifiers(node, names) {
   if (!node || node.type !== "TemplateLiteral") return false;
@@ -33,14 +38,21 @@ function isUserInputExpression(node) {
 }
 
 function fileLooksProtected(source) {
-  return /(requireUser|requireAuth|getServerSession|authMiddleware|verifyToken|withAuth|isAuthenticated|currentUser|protect\()/i.test(source);
+  return (
+    /(requireUser|requireAuth|getServerSession|authMiddleware|verifyToken|withAuth|isAuthenticated|currentUser|protect\()/i.test(source) ||
+    /\b(require|ensure|get|verify)(User|Auth|Session|Principal|Admin|Login)\s*\(/.test(source)
+  );
 }
 
+// Underscore-prefixed segments (api/_lib, app/_utils) are private helpers, not routes.
+const PRIVATE_SEGMENT_RE = /(^|\/)_[^/]+\//;
+const HANDLER_RE = /((module\.exports|exports\.\w+)\s*=|export\s+default)\s*(async\s+)?(function\s*\w*\s*)?\(\s*\{?\s*req\b|\bexport\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|handler)\b|\b(router|app|server|fastify)\.(get|post|put|patch|delete|all|route)\s*\(/;
+
 function looksLikeApiRoute(file) {
-  return (
+  const inRouteDir =
     /(^|\/)(api|routes|server|controllers)\//i.test(file.path) ||
-    /\.(controller|route|handler)\.(js|ts|tsx|jsx|mjs|cjs)$/.test(file.path)
-  );
+    /\.(controller|route|handler)\.(js|ts|tsx|jsx|mjs|cjs)$/.test(file.path);
+  return inRouteDir && !PRIVATE_SEGMENT_RE.test(file.path) && HANDLER_RE.test(file.content);
 }
 
 function coreJsRules(file, ast) {
@@ -316,7 +328,8 @@ function coreJsRules(file, ast) {
     }
   });
 
-  if (looksLikeApiRoute(file) && !usesAuthGuard) {
+  // Next.js route handlers get the per-handler nextjs.route_handler_no_auth rule instead.
+  if (looksLikeApiRoute(file) && !usesAuthGuard && !isWebhookFile(file) && !NEXTJS_ROUTE_RE.test(file.path)) {
     findings.push(buildFinding({
       rule: "auth.unprotected_route",
       severity: "medium",
@@ -331,7 +344,13 @@ function coreJsRules(file, ast) {
     }));
   }
 
-  if (/stripe|webhook/i.test(file.path) && /(req\.body|JSON\.parse|request\.json|request\.text|await\s+request\.formData)/i.test(source) && !usesWebhookConstruct) {
+  if (
+    isWebhookFile(file) &&
+    !isClerkWebhookFile(file) &&
+    /(req\.body|JSON\.parse|request\.json|request\.text|await\s+request\.formData)/i.test(source) &&
+    !usesWebhookConstruct &&
+    !verifiesWebhookSignature(source)
+  ) {
     findings.push(buildFinding({
       rule: "webhooks.unverified_signature",
       severity: "critical",

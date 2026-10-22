@@ -1,4 +1,5 @@
 const { buildFinding } = require("../findings");
+const { analyzeOwnership } = require("./ownership");
 const {
   getCalleeName,
   getDirectives,
@@ -6,6 +7,7 @@ const {
   getLiteralString,
   hasAuthCallNearby,
   isCommented,
+  isWebhookFile,
   looksLikeClientComponent,
   looksLikeRouteHandler,
   looksLikeServerAction,
@@ -148,7 +150,8 @@ function functionUsesFormDataDirectly(funcPath) {
 function analyzeNextjs(file, ast, findings) {
   if (!ast) return;
   // Route handlers under app/.../route.ts
-  if (NEXTJS_ROUTE_RE.test(file.path)) {
+  // Webhook routes are checked for signature verification instead of session auth.
+  if (NEXTJS_ROUTE_RE.test(file.path) && !isWebhookFile(file)) {
     const handlers = findExportedHttpHandlers(ast);
     for (const handler of handlers) {
       const line = handler.node.loc?.start.line || 1;
@@ -475,6 +478,7 @@ function analyze(file, ast) {
   analyzeSupabase(file, ast, findings);
   analyzeStripe(file, ast, findings);
   analyzeClerk(file, ast, findings);
+  if (ast) findings.push(...analyzeOwnership(file, ast, { isServerAction: looksLikeServerAction(file, ast) }));
   return findings;
 }
 
