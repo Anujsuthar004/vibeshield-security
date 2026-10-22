@@ -5,11 +5,14 @@
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 
-const { analyzeFile } = require("../api/_lib/analyzers");
+const { analyzeFiles } = require("../api/_lib/analyzers");
 const { analyzeFiles: analyzeDependencies } = require("../api/_lib/analyzers/dependencies");
 const { applySuppressions, parseIgnoreFile } = require("../api/_lib/ignore");
 const { calculateScore, uniqueFindings } = require("../api/_lib/findings");
+const { combinedFixPrompt, withFixPrompts } = require("../api/_lib/prompts");
+const { scanUrl } = require("../api/_lib/url-scan");
 const { version: VERSION } = require("../package.json");
 
 const MAX_FILE_BYTES = 200 * 1024;
@@ -51,6 +54,8 @@ function parseArgs(argv) {
       args.format = "json";
     } else if (arg === "--sarif") {
       args.format = "sarif";
+    } else if (arg === "--fix-prompt") {
+      args.format = "prompt";
     } else if (arg === "--quiet" || arg === "-q") {
       args.quiet = true;
     } else if (arg === "--no-deps") {
@@ -61,8 +66,15 @@ function parseArgs(argv) {
       args.failOn = argv[++i];
     } else if (arg === "--severity") {
       args.severity = argv[++i];
+    } else if (arg === "--staged") {
+      args.staged = true;
+    } else if (arg === "--install-hook") {
+      args.installHook = true;
+    } else if (arg === "--url") {
+      args.url = argv[++i];
     } else if (!arg.startsWith("-")) {
       args.path = arg;
+      args.pathGiven = true;
     }
   }
   return args;
@@ -76,9 +88,14 @@ Usage: vibeshield [path] [options]
 Options:
   --json              Output JSON
   --sarif             Output SARIF 2.1.0 (for GitHub Code Scanning)
+  --fix-prompt        Output one prompt covering every finding, to paste into Cursor / Claude Code
   --output, -o <f>    Write output to file instead of stdout
   --severity <lvl>    Minimum severity to show: critical | high | medium | low (default: low)
   --fail-on <lvl>     Exit non-zero if any finding meets or exceeds severity
+  --url <url>         Scan a deployed site's public JavaScript for leaked keys and source maps
+                      (add a path too to scan the code and the site together)
+  --staged            Only report findings in files staged for commit (for pre-commit hooks)
+  --install-hook      Install a git pre-commit hook that runs --staged --fail-on high
   --no-deps           Skip dependency CVE scan (faster, no network)
   --quiet, -q         Suppress informational output
   -h, --help          Show this help
@@ -86,7 +103,10 @@ Options:
 Examples:
   vibeshield .
   vibeshield ./app --fail-on high
+  vibeshield --url https://myapp.vercel.app
+  vibeshield --install-hook
   vibeshield --sarif -o vibeshield.sarif --fail-on critical
+  vibeshield --fix-prompt --severity high | pbcopy
 `);
 }
 
@@ -193,6 +213,7 @@ function renderPretty(result, args) {
     }
     lines.push("");
   }
+  lines.push("Get a paste-ready prompt for Cursor / Claude Code: vibeshield --fix-prompt" + (args.severity !== "low" ? ` --severity ${args.severity}` : ""));
   return lines.join("\n");
 }
 
@@ -219,6 +240,7 @@ function renderSarif(result) {
       ruleId: finding.rule,
       level: finding.severity === "critical" || finding.severity === "high" ? "error" : finding.severity === "medium" ? "warning" : "note",
       message: { text: finding.title + " — " + finding.fix },
+      properties: finding.fix_prompt ? { fixPrompt: finding.fix_prompt } : undefined,
       locations: finding.file
         ? [
             {
@@ -262,7 +284,7 @@ async function scanDirectory(root, { deps = true } = {}) {
   const ignoreRules = ignoreFile ? parseIgnoreFile(ignoreFile.content) : [];
   const filesToScan = files.filter((file) => !ignoreRules.some((rule) => rule.kind === "path" && rule.regex.test(file.path)));
 
-  const codeFindings = uniqueFindings(filesToScan.flatMap(analyzeFile));
+  const codeFindings = uniqueFindings(analyzeFiles(filesToScan));
   let depFindings = [];
   if (deps) {
     depFindings = await analyzeDependencies(filesToScan, { enabled: true });
@@ -274,16 +296,69 @@ async function scanDirectory(root, { deps = true } = {}) {
     target: path.basename(root)
   });
 
-  return {
+  return summarize({
     target: path.basename(root),
     filesScanned: filesToScan.length,
     bytesScanned: totalBytes,
     durationMs: Date.now() - started,
-    score: calculateScore(finalFindings),
-    findings: finalFindings,
-    activeFindingsCount: finalFindings.filter((f) => !f.suppressed).length,
-    suppressedFindingsCount: finalFindings.filter((f) => f.suppressed).length
+    findings: finalFindings
+  });
+}
+
+function summarize({ findings, ...rest }) {
+  const withPrompts = withFixPrompts(findings);
+  return {
+    ...rest,
+    score: calculateScore(withPrompts),
+    findings: withPrompts,
+    activeFindingsCount: withPrompts.filter((f) => !f.suppressed).length,
+    suppressedFindingsCount: withPrompts.filter((f) => f.suppressed).length
   };
+}
+
+// Combine a code scan and a deployed-site scan into one result.
+function mergeResults(results) {
+  if (results.length === 1) return results[0];
+  return summarize({
+    target: results.map((r) => r.target).join(" + "),
+    filesScanned: results.reduce((sum, r) => sum + r.filesScanned, 0),
+    bytesScanned: results.reduce((sum, r) => sum + r.bytesScanned, 0),
+    durationMs: results.reduce((sum, r) => sum + r.durationMs, 0),
+    findings: results.flatMap((r) => r.findings)
+  });
+}
+
+const HOOK_MARKER = "# vibeshield pre-commit hook";
+const HOOK_SCRIPT = `#!/bin/sh
+${HOOK_MARKER}
+# Blocks commits that add high or critical security issues. Skip once with: git commit --no-verify
+npx --yes vibeshield --staged --fail-on high --no-deps --quiet
+`;
+
+function git(args, cwd) {
+  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+}
+
+async function installHook(cwd) {
+  let hooksDir;
+  try {
+    // Respects core.hooksPath and git worktrees.
+    hooksDir = path.resolve(cwd, git(["rev-parse", "--git-path", "hooks"], cwd));
+  } catch {
+    console.error("error: not inside a git repository");
+    return 2;
+  }
+  const hookPath = path.join(hooksDir, "pre-commit");
+  const existing = fs.existsSync(hookPath) ? await fsp.readFile(hookPath, "utf8") : null;
+  if (existing && !existing.includes(HOOK_MARKER)) {
+    console.error(`error: ${hookPath} already exists. Add this line to it instead:\n  npx --yes vibeshield --staged --fail-on high --no-deps --quiet`);
+    return 2;
+  }
+  await fsp.mkdir(hooksDir, { recursive: true });
+  await fsp.writeFile(hookPath, HOOK_SCRIPT, { mode: 0o755 });
+  await fsp.chmod(hookPath, 0o755);
+  console.log(`Installed ${hookPath}`);
+  return 0;
 }
 
 async function main() {
@@ -292,35 +367,76 @@ async function main() {
     printHelp();
     return 0;
   }
+  if (args.installHook) return installHook(process.cwd());
+  let stagedFiles = null;
+  if (args.staged) {
+    try {
+      const top = git(["rev-parse", "--show-toplevel"], path.resolve(args.path));
+      stagedFiles = new Set(git(["diff", "--cached", "--name-only", "--diff-filter=ACMR"], top).split("\n").filter(Boolean));
+      args.path = top;
+    } catch {
+      console.error("error: --staged needs to run inside a git repository");
+      return 2;
+    }
+    if (!stagedFiles.size) return 0;
+  }
   for (const [flag, value] of [["--severity", args.severity], ["--fail-on", args.failOn]]) {
     if (value != null && !SEVERITY_ORDER[value]) {
       console.error(`error: ${flag} must be one of critical, high, medium, low`);
       return 2;
     }
   }
+  const scanCode = !args.url || args.pathGiven;
   const root = path.resolve(args.path);
-  try {
-    const stat = await fsp.stat(root);
-    if (!stat.isDirectory()) {
-      console.error(`error: ${root} is not a directory`);
+  if (scanCode) {
+    try {
+      const stat = await fsp.stat(root);
+      if (!stat.isDirectory()) {
+        console.error(`error: ${root} is not a directory`);
+        return 2;
+      }
+    } catch {
+      console.error(`error: ${root} does not exist`);
       return 2;
     }
-  } catch {
-    console.error(`error: ${root} does not exist`);
+  }
+  if (args.url && !/^https?:\/\//i.test(args.url)) {
+    console.error("error: --url must start with http:// or https://");
     return 2;
   }
 
-  if (!args.quiet && args.format === "pretty") {
-    process.stderr.write(`Scanning ${root}…\n`);
+  const log = (message) => {
+    if (!args.quiet && args.format === "pretty") process.stderr.write(message);
+  };
+  const results = [];
+  if (scanCode) {
+    log(`Scanning ${root}…\n`);
+    results.push(await scanDirectory(root, { deps: args.deps }));
   }
-
-  const result = await scanDirectory(root, { deps: args.deps });
+  if (args.url) {
+    log(`Fetching ${args.url} and its JavaScript…\n`);
+    try {
+      const site = await scanUrl(args.url, { userAgent: `VibeShield/${VERSION} (+https://github.com/Anujsuthar004/vibeshield-security)` });
+      results.push(summarize(site));
+    } catch (error) {
+      console.error(`error: could not scan ${args.url}: ${error.message}`);
+      return 2;
+    }
+  }
+  let result = mergeResults(results);
+  if (stagedFiles) {
+    // The whole repo is analyzed so cross-file checks (RLS, ownership) still see context.
+    result = summarize({ ...result, findings: result.findings.filter((finding) => stagedFiles.has(finding.file)) });
+  }
 
   let output;
   if (args.format === "json") {
     output = JSON.stringify(result, null, 2);
   } else if (args.format === "sarif") {
     output = renderSarif(result);
+  } else if (args.format === "prompt") {
+    const visible = result.findings.filter((finding) => meetsSeverity(finding, args.severity));
+    output = combinedFixPrompt(visible) || "No findings at this severity threshold.";
   } else {
     output = renderPretty(result, args);
   }
@@ -329,7 +445,8 @@ async function main() {
     await fsp.writeFile(args.output, output, "utf8");
     if (!args.quiet) process.stderr.write(`Wrote ${args.output}\n`);
   } else {
-    process.stdout.write(output + "\n");
+    // Wait for the flush: process.exit() right after a large write to a pipe truncates it at 64 KB.
+    await new Promise((resolve) => process.stdout.write(output + "\n", resolve));
   }
 
   if (args.failOn) {
@@ -351,5 +468,6 @@ if (require.main === module) {
 module.exports = {
   meetsSeverity,
   renderSarif,
-  scanDirectory
+  scanDirectory,
+  summarize
 };

@@ -1,10 +1,15 @@
 {
-  "$comment": "Asserted by test/benchmark.test.js. Every entry must be found, and no other finding may appear. When a rule change alters this list on purpose, update it in the same commit. Entries marked noise are current false positives or duplicates; delete them when the rule is fixed.",
+  "$comment": "Asserted by test/benchmark.test.js. Every entry must be found, and no other finding may appear. When a rule change alters this list on purpose, update it in the same commit.",
   "expected": [
     {
       "rule": "nextjs.server_action_no_auth",
       "file": "app/actions/profile.ts",
       "line": 8
+    },
+    {
+      "rule": "authz.idor_missing_ownership_check",
+      "file": "app/actions/profile.ts",
+      "line": 9
     },
     {
       "rule": "nextjs.server_action_mass_assignment",
@@ -22,10 +27,9 @@
       "line": 21
     },
     {
-      "rule": "auth.unprotected_route",
-      "file": "app/api/checkout/route.ts",
-      "line": 1,
-      "noise": "duplicates nextjs.route_handler_no_auth"
+      "rule": "authz.idor_missing_ownership_check",
+      "file": "app/actions/projects.ts",
+      "line": 10
     },
     {
       "rule": "nextjs.route_handler_no_auth",
@@ -48,10 +52,9 @@
       "line": 22
     },
     {
-      "rule": "auth.unprotected_route",
-      "file": "app/api/users/[id]/route.ts",
-      "line": 1,
-      "noise": "duplicates nextjs.route_handler_no_auth"
+      "rule": "authz.idor_missing_ownership_check",
+      "file": "app/api/projects/[id]/route.ts",
+      "line": 10
     },
     {
       "rule": "nextjs.route_handler_no_auth",
@@ -69,15 +72,14 @@
       "line": 21
     },
     {
-      "rule": "supabase.auth_admin_call",
+      "rule": "authz.idor_missing_ownership_check",
       "file": "app/api/users/[id]/route.ts",
       "line": 23
     },
     {
-      "rule": "auth.unprotected_route",
-      "file": "app/api/webhooks/clerk/route.ts",
-      "line": 1,
-      "noise": "webhooks authenticate by signature, not by session"
+      "rule": "supabase.auth_admin_call",
+      "file": "app/api/users/[id]/route.ts",
+      "line": 23
     },
     {
       "rule": "clerk.webhook_unverified",
@@ -86,32 +88,8 @@
     },
     {
       "rule": "webhooks.unverified_signature",
-      "file": "app/api/webhooks/clerk/route.ts",
-      "line": 1,
-      "noise": "duplicates clerk.webhook_unverified"
-    },
-    {
-      "rule": "nextjs.route_handler_no_auth",
-      "file": "app/api/webhooks/clerk/route.ts",
-      "line": 4,
-      "noise": "webhooks authenticate by signature, not by session"
-    },
-    {
-      "rule": "auth.unprotected_route",
-      "file": "app/api/webhooks/stripe/route.ts",
-      "line": 1,
-      "noise": "webhooks authenticate by signature, not by session"
-    },
-    {
-      "rule": "webhooks.unverified_signature",
       "file": "app/api/webhooks/stripe/route.ts",
       "line": 1
-    },
-    {
-      "rule": "nextjs.route_handler_no_auth",
-      "file": "app/api/webhooks/stripe/route.ts",
-      "line": 4,
-      "noise": "webhooks authenticate by signature, not by session"
     },
     {
       "rule": "clerk.current_user_no_null_check",
@@ -137,18 +115,43 @@
       "rule": "auth.weak_jwt_secret",
       "file": "lib/jwt.ts",
       "line": 4
+    },
+    {
+      "rule": "supabase.rls_policy_public_read",
+      "file": "supabase/migrations/20240101000000_init.sql",
+      "line": 10
+    },
+    {
+      "rule": "supabase.rls_policy_write_true",
+      "file": "supabase/migrations/20240101000000_init.sql",
+      "line": 14
+    },
+    {
+      "rule": "supabase.rls_not_enabled",
+      "file": "supabase/migrations/20240101000000_init.sql",
+      "line": 18
+    },
+    {
+      "rule": "supabase.rls_policy_not_user_scoped",
+      "file": "supabase/migrations/20240101000000_init.sql",
+      "line": 32
+    },
+    {
+      "rule": "supabase.view_bypasses_rls",
+      "file": "supabase/migrations/20240101000000_init.sql",
+      "line": 36
+    },
+    {
+      "rule": "supabase.security_definer_search_path",
+      "file": "supabase/migrations/20240101000000_init.sql",
+      "line": 40
     }
   ],
   "knownMisses": [
     {
       "file": "app/api/users/[id]/route.ts",
       "line": 14,
-      "issue": "SQL built from params.id is passed to supabase.rpc; rpc is not a recognised SQL sink"
-    },
-    {
-      "file": "app/api/users/[id]/route.ts",
-      "line": 11,
-      "issue": "IDOR: row fetched by params.id with no ownership check (no rule yet)"
+      "issue": "GET builds SQL from params.id and passes it to supabase.rpc; rpc is neither a SQL-injection sink nor an IDOR lookup"
     },
     {
       "file": "components/Bio.tsx",

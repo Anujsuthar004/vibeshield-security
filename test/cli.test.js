@@ -48,3 +48,17 @@ test("--sarif emits SARIF 2.1.0 with the package version", () => {
     assert.ok(runResult.tool.driver.rules.some((rule) => rule.id === result.ruleId));
   }
 });
+
+test("large JSON output piped to another process is not truncated", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vibeshield-big-"));
+  try {
+    for (let i = 0; i < 120; i += 1) {
+      fs.writeFileSync(path.join(dir, `f${i}.js`), "export function run(input) { return eval(input); }\nlocalStorage.setItem('token', 'x');\n");
+    }
+    const res = run([dir, "--json"]);
+    assert.ok(res.stdout.length > 64 * 1024, `expected >64 KB of output, got ${res.stdout.length}`);
+    assert.ok(JSON.parse(res.stdout).findings.length >= 120);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
