@@ -12,11 +12,13 @@ Live demo and dashboard: <https://vibeshield-security.vercel.app>
 
 | Capability | Status |
 | --- | --- |
-| AST-based JS/TS analysis (`@babel/parser`) | 17 core rules |
+| AST-based JS/TS analysis (`@babel/parser`) | 14 core rules |
 | Intra-procedural taint tracking (JS/TS) — SQL, shell, eval, redirect, fs, SSRF, XSS sinks | 7 sinks |
 | Vibe-stack rule packs — Next.js App Router, Supabase, Stripe, Clerk | 11 rules |
-| Python / Ruby / Go / PHP / SQL rules (regex-based, line-level) | 25 rules |
+| Python / Ruby / Go / PHP / SQL rules (regex-based, line-level) | 26 rules |
 | Secret literal patterns (Stripe, GitHub, AWS, Slack, OpenAI, SendGrid, Twilio, Resend, Supabase JWT) | 11 patterns |
+| CLI with SARIF output + GitHub Action (annotations, job summary, Code Scanning upload) | Yes |
+| Regression tests against the benchmark fixture (`npm test`) | Yes |
 | `.env*` public-prefix secret detection | Yes |
 | Dependency CVE matching via [osv.dev](https://osv.dev) | npm, PyPI, RubyGems, Go, Packagist, Maven |
 | `.vibeshield.ignore` file + workspace-level suppression | Yes |
@@ -27,7 +29,7 @@ Live demo and dashboard: <https://vibeshield-security.vercel.app>
 | Postgres-backed rate limiting, audit log retention, OSV cache | Yes |
 | Account self-deletion (cascades across every table) | Yes |
 
-**Total static rules: 67.** Plus dynamic CVE matches from OSV.
+**Total static rules: 70.** Plus dynamic CVE matches from OSV.
 
 ### Vibe-stack rules
 
@@ -69,9 +71,9 @@ These are honest limitations, not roadmap-marketing:
 - **No data flow across files.** A tainted value passed to an imported helper is not traced.
 - **Python / Ruby / Go / PHP rules are line-by-line regex.** Variable-level reasoning is JS/TS-only.
 - **No transitive dependency CVE resolution.** We read direct deps from `package.json` and a handful of lockfiles; we don't walk the full dep graph.
-- **No GitHub Action yet.** CLI exists (`npx vibeshield` after `npm install`) and emits SARIF; a packaged Action is the next step.
-- **Secret coverage is narrow.** Catches Stripe / GitHub / AWS / Slack / OpenAI keys. Does not catch GCP service accounts, Azure connection strings, Twilio, SendGrid, Firebase admin keys, or PostgreSQL connection URLs.
-- **Webhook signature check is Stripe-shaped only.** Clerk / svix, GitHub `X-Hub-Signature-256`, Slack signing secret, Discord ed25519 — not caught yet.
+- **The GitHub Action doesn't post PR comments.** It annotates the diff, writes a job summary, and uploads SARIF; a summary comment on the PR still needs the GitHub App.
+- **Secret coverage is narrow.** Catches Stripe, GitHub, AWS, Slack, OpenAI, SendGrid, Twilio, Resend keys and JWTs. Does not catch GCP service accounts, Azure connection strings, Firebase admin keys, or PostgreSQL / MongoDB connection URLs.
+- **Webhook signature checks cover Stripe and Clerk (svix) only.** GitHub `X-Hub-Signature-256`, Slack signing secret, Discord ed25519 — not caught yet.
 - **High false positive rate on `auth.unprotected_route`.** It's keyword-based; expect to suppress some.
 - **Single-maintainer project.** There is no monitored email inbox. Use [GitHub Issues](https://github.com/Anujsuthar004/vibeshield-security/issues) for everything, and [GitHub Private Vulnerability Reporting](https://github.com/Anujsuthar004/vibeshield-security/security/advisories/new) for security disclosures.
 
@@ -123,16 +125,49 @@ Open the marketing page at `http://localhost:4173`, paste a snippet of code, hit
 
 ```bash
 # Scan your current directory
-node scripts/cli.js .
+npx vibeshield .
 
 # CI-friendly SARIF output for GitHub Code Scanning
-node scripts/cli.js . --sarif -o vibeshield.sarif --fail-on high
+npx vibeshield . --sarif -o vibeshield.sarif --fail-on high
 
 # Quiet, JSON output, no network
-node scripts/cli.js . --json --no-deps --quiet
+npx vibeshield . --json --no-deps --quiet
 ```
 
-`vibeshield --help` lists every flag. The CLI returns exit code `1` when `--fail-on <level>` matches at least one finding, so it slots straight into a CI pipeline.
+From a clone, `node scripts/cli.js` works the same way. `vibeshield --help` lists every flag. The CLI returns exit code `1` when `--fail-on <level>` matches at least one finding, so it slots straight into a CI pipeline.
+
+### GitHub Action
+
+```yaml
+# .github/workflows/vibeshield.yml
+name: VibeShield
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  security-events: write # only needed for upload-sarif
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Anujsuthar004/vibeshield-security@v0
+        with:
+          fail-on: high
+```
+
+Every run annotates the offending lines in the PR diff and writes a findings table to the job summary. Both work on private repos with no extra setup. SARIF upload to GitHub Code Scanning is on by default; it needs Code Scanning to be available (free on public repos, GitHub Advanced Security on private ones), so set `upload-sarif: false` if you don't have it.
+
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `path` | `.` | Directory to scan |
+| `fail-on` | `high` | Fail the job at this severity or above: `critical`, `high`, `medium`, `low`, or `none` |
+| `dependency-scan` | `true` | Look up dependency CVEs on osv.dev |
+| `upload-sarif` | `true` | Upload results to GitHub Code Scanning |
+| `sarif-file` | `vibeshield.sarif` | Where to write the SARIF report |
+
+Outputs: `findings` (active finding count), `score` (0–100), `sarif-file`.
 
 ### Programmatic API
 
@@ -223,11 +258,13 @@ Free. Forever. No paid tier, no upsell, no "contact sales." If that ever changes
 
 Pull requests welcome. Highest-leverage areas:
 
-1. **New rules**, especially for the Next.js / Supabase / Stripe / Clerk stack.
-2. **Intra-procedural taint tracking** for JS/TS. Track tainted identifiers across statements within a function and flag when they reach a sink.
-3. **A real CLI** that emits SARIF for GitHub Code Scanning.
+1. **New rules**, especially for the Next.js / Supabase / Stripe / Clerk stack. Add a vulnerable case to `benchmarks/vulnerable-vibe-app/` and its expected finding to `expected-findings.json`.
+2. **Inter-procedural taint tracking** for JS/TS: follow tainted values into helper functions in the same file.
+3. **Fixing known misses** listed in `benchmarks/vulnerable-vibe-app/expected-findings.json`.
 4. **Python / Ruby AST analyzers** via Tree-sitter or a sidecar process.
 5. **Benchmarks** against vulnerable open-source apps (OWASP Juice Shop, Damn Vulnerable Node App, etc.).
+
+Run `npm test` before opening a PR. The benchmark test fails on both missed and unexpected findings, so a rule change that adds noise shows up immediately.
 
 See [`ROADMAP.md`](./ROADMAP.md) for what's coming next.
 

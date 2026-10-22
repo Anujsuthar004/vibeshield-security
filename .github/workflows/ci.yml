@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  action:
+    # Runs this repo's own action against the benchmark fixture.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: scan
+        uses: ./
+        with:
+          path: benchmarks/vulnerable-vibe-app
+          fail-on: none
+          dependency-scan: "false"
+          upload-sarif: "false"
+      - name: Check action outputs
+        env:
+          FINDINGS: ${{ steps.scan.outputs.findings }}
+          SARIF_FILE: ${{ steps.scan.outputs.sarif-file }}
+        run: |
+          test "$FINDINGS" -gt 0 || { echo "expected findings, got '$FINDINGS'"; exit 1; }
+          node -e 'const s = require("./" + process.env.SARIF_FILE); if (!s.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri.startsWith("benchmarks/vulnerable-vibe-app/")) process.exit(1)'

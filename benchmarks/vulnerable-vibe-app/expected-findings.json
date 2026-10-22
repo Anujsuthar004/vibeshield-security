@@ -1,0 +1,159 @@
+{
+  "$comment": "Asserted by test/benchmark.test.js. Every entry must be found, and no other finding may appear. When a rule change alters this list on purpose, update it in the same commit. Entries marked noise are current false positives or duplicates; delete them when the rule is fixed.",
+  "expected": [
+    {
+      "rule": "nextjs.server_action_no_auth",
+      "file": "app/actions/profile.ts",
+      "line": 8
+    },
+    {
+      "rule": "nextjs.server_action_mass_assignment",
+      "file": "app/actions/profile.ts",
+      "line": 9
+    },
+    {
+      "rule": "taint.open_redirect",
+      "file": "app/actions/profile.ts",
+      "line": 16
+    },
+    {
+      "rule": "nextjs.cookies_missing_options",
+      "file": "app/actions/profile.ts",
+      "line": 21
+    },
+    {
+      "rule": "auth.unprotected_route",
+      "file": "app/api/checkout/route.ts",
+      "line": 1,
+      "noise": "duplicates nextjs.route_handler_no_auth"
+    },
+    {
+      "rule": "nextjs.route_handler_no_auth",
+      "file": "app/api/checkout/route.ts",
+      "line": 7
+    },
+    {
+      "rule": "stripe.idempotency_missing",
+      "file": "app/api/checkout/route.ts",
+      "line": 9
+    },
+    {
+      "rule": "nextjs.route_handler_no_auth",
+      "file": "app/api/checkout/route.ts",
+      "line": 20
+    },
+    {
+      "rule": "stripe.idempotency_missing",
+      "file": "app/api/checkout/route.ts",
+      "line": 22
+    },
+    {
+      "rule": "auth.unprotected_route",
+      "file": "app/api/users/[id]/route.ts",
+      "line": 1,
+      "noise": "duplicates nextjs.route_handler_no_auth"
+    },
+    {
+      "rule": "nextjs.route_handler_no_auth",
+      "file": "app/api/users/[id]/route.ts",
+      "line": 11
+    },
+    {
+      "rule": "taint.path_traversal",
+      "file": "app/api/users/[id]/route.ts",
+      "line": 17
+    },
+    {
+      "rule": "nextjs.route_handler_no_auth",
+      "file": "app/api/users/[id]/route.ts",
+      "line": 21
+    },
+    {
+      "rule": "supabase.auth_admin_call",
+      "file": "app/api/users/[id]/route.ts",
+      "line": 23
+    },
+    {
+      "rule": "auth.unprotected_route",
+      "file": "app/api/webhooks/clerk/route.ts",
+      "line": 1,
+      "noise": "webhooks authenticate by signature, not by session"
+    },
+    {
+      "rule": "clerk.webhook_unverified",
+      "file": "app/api/webhooks/clerk/route.ts",
+      "line": 1
+    },
+    {
+      "rule": "webhooks.unverified_signature",
+      "file": "app/api/webhooks/clerk/route.ts",
+      "line": 1,
+      "noise": "duplicates clerk.webhook_unverified"
+    },
+    {
+      "rule": "nextjs.route_handler_no_auth",
+      "file": "app/api/webhooks/clerk/route.ts",
+      "line": 4,
+      "noise": "webhooks authenticate by signature, not by session"
+    },
+    {
+      "rule": "auth.unprotected_route",
+      "file": "app/api/webhooks/stripe/route.ts",
+      "line": 1,
+      "noise": "webhooks authenticate by signature, not by session"
+    },
+    {
+      "rule": "webhooks.unverified_signature",
+      "file": "app/api/webhooks/stripe/route.ts",
+      "line": 1
+    },
+    {
+      "rule": "nextjs.route_handler_no_auth",
+      "file": "app/api/webhooks/stripe/route.ts",
+      "line": 4,
+      "noise": "webhooks authenticate by signature, not by session"
+    },
+    {
+      "rule": "clerk.current_user_no_null_check",
+      "file": "app/dashboard/page.tsx",
+      "line": 7
+    },
+    {
+      "rule": "supabase.service_role_client_side",
+      "file": "components/AdminPanel.tsx",
+      "line": 1
+    },
+    {
+      "rule": "auth.token_in_browser_storage",
+      "file": "components/Bio.tsx",
+      "line": 16
+    },
+    {
+      "rule": "xss.dangerously_set_inner_html",
+      "file": "components/Bio.tsx",
+      "line": 19
+    },
+    {
+      "rule": "auth.weak_jwt_secret",
+      "file": "lib/jwt.ts",
+      "line": 4
+    }
+  ],
+  "knownMisses": [
+    {
+      "file": "app/api/users/[id]/route.ts",
+      "line": 14,
+      "issue": "SQL built from params.id is passed to supabase.rpc; rpc is not a recognised SQL sink"
+    },
+    {
+      "file": "app/api/users/[id]/route.ts",
+      "line": 11,
+      "issue": "IDOR: row fetched by params.id with no ownership check (no rule yet)"
+    },
+    {
+      "file": "components/Bio.tsx",
+      "line": 19,
+      "issue": "URLSearchParams(window.location.search) is not a taint source, so the XSS is only reported by the generic dangerouslySetInnerHTML rule"
+    }
+  ]
+}

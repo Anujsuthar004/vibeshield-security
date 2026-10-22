@@ -11,9 +11,12 @@ This is the honest list. Items at the top are committed; items near the bottom a
 
 ## Next (v0.5)
 
-- [ ] **GitHub Action** that runs the CLI and posts PR comments without needing the GitHub App.
-- [ ] **More secret patterns**: Twilio, SendGrid, Resend, Firebase admin, GCP service accounts, Azure connection strings, MongoDB / PostgreSQL connection URLs in code, Cloudinary, Mux, Algolia.
-- [ ] **Webhook signature checks for Clerk (svix), Slack signing secret, GitHub `X-Hub-Signature-256`, Discord ed25519.**
+- [x] **GitHub Action** that runs the CLI, annotates PR diffs, writes a job summary and uploads SARIF, without needing the GitHub App.
+- [x] **Publishable CLI**: `npx vibeshield`.
+- [x] **Benchmark regression tests** (`npm test`): the fixture's expected findings are asserted, so recall drops and new noise both fail CI.
+- [ ] **PR summary comment from the Action** (today that needs the GitHub App).
+- [ ] **More secret patterns**: Firebase admin, GCP service accounts, Azure connection strings, MongoDB / PostgreSQL connection URLs in code, Cloudinary, Mux, Algolia. (Twilio, SendGrid and Resend shipped in v0.4.)
+- [ ] **Webhook signature checks for Slack signing secret, GitHub `X-Hub-Signature-256`, Discord ed25519.** (Clerk / svix shipped in v0.4.)
 - [ ] **Better dependency scanning**: parse `yarn.lock` and `pnpm-lock.yaml` content. Surface transitive vulnerabilities.
 - [ ] **Pre-commit hook** via `husky` template / `lefthook` config.
 

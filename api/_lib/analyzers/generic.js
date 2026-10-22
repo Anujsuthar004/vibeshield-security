@@ -1,8 +1,8 @@
 const { buildFinding } = require("../findings");
 
 const SECRET_PATTERNS = [
-  { rule: "secrets.stripe_live", rx: /sk-live-[A-Za-z0-9_-]{12,}/, label: "Stripe live secret key" },
-  { rule: "secrets.stripe_test", rx: /sk-test-[A-Za-z0-9_-]{12,}/, label: "Stripe test secret key" },
+  { rule: "secrets.stripe_live", rx: /\b[sr]k_live_[A-Za-z0-9]{16,}/, label: "Stripe live secret key" },
+  { rule: "secrets.stripe_test", rx: /\b[sr]k_test_[A-Za-z0-9]{16,}/, label: "Stripe test secret key" },
   { rule: "secrets.github_pat", rx: /ghp_[A-Za-z0-9_]{20,}/, label: "GitHub PAT" },
   { rule: "secrets.github_fine_pat", rx: /github_pat_[A-Za-z0-9_]{20,}/, label: "GitHub fine-grained PAT" },
   { rule: "secrets.aws_key", rx: /AKIA[A-Z0-9]{12,}/, label: "AWS access key id" },

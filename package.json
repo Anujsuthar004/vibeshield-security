@@ -1,17 +1,33 @@
 {
-  "name": "vibeshield-security",
+  "name": "vibeshield",
   "version": "0.4.0",
-  "private": true,
-  "description": "Security check platform for vibe-coded SaaS and AI-built apps.",
+  "description": "Security scanner for vibe-coded Next.js + Supabase + Stripe + Clerk apps. CLI, SARIF output, GitHub Action.",
   "bin": {
     "vibeshield": "scripts/cli.js"
   },
+  "files": [
+    "scripts/cli.js",
+    "api/_lib/analyzers/",
+    "api/_lib/db.js",
+    "api/_lib/findings.js",
+    "api/_lib/ignore.js"
+  ],
   "scripts": {
     "start": "node scripts/local-server.js",
     "dev": "node scripts/local-server.js",
     "build": "node scripts/build-check.js",
     "migrate": "node scripts/migrate.js",
-    "cli": "node scripts/cli.js"
+    "cli": "node scripts/cli.js",
+    "test": "node --test test/*.test.js",
+    "prepublishOnly": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Anujsuthar004/vibeshield-security.git"
+  },
+  "homepage": "https://github.com/Anujsuthar004/vibeshield-security#readme",
+  "bugs": {
+    "url": "https://github.com/Anujsuthar004/vibeshield-security/issues"
   },
   "keywords": [
     "security",
@@ -19,7 +35,13 @@
     "vibe coding",
     "code scanning",
     "authentication",
-    "application security"
+    "application security",
+    "nextjs",
+    "supabase",
+    "stripe",
+    "sast",
+    "sarif",
+    "cli"
   ],
   "author": "VibeShield",
   "license": "MIT",
@@ -31,6 +53,6 @@
     "pg": "^8.11.5"
   },
   "engines": {
-    "node": "20.x"
+    "node": ">=20"
   }
 }
